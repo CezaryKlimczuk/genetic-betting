@@ -1,0 +1,13 @@
+---
+description: Python dependencies must be managed with uv, not by editing pyproject.toml lists by hand.
+globs: "pyproject.toml"
+alwaysApply: false
+---
+
+# Dependencies (uv only)
+
+- **Do not** add, remove, or reorder runtime or dev dependencies by editing `[project] dependencies` or dependency groups in [`pyproject.toml`](../../pyproject.toml) by hand.
+- **Do** use **`uv add <package>`** for runtime deps and **`uv add --dev <package>`** (or the appropriate `uv add` flags for your groups) for dev tools.
+- Let **`uv`** update `pyproject.toml` and the lockfile. If a package is needed, run the `uv add` command in the terminal from the repo root instead of pasting version pins into the file.
+
+Exception: editing **non-dependency** fields in `pyproject.toml` (for example `description`, `requires-python`, tool config) is fine when the task requires it.

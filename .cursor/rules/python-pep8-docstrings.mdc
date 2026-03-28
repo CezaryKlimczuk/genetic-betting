@@ -1,0 +1,20 @@
+---
+description: PEP 8 formatting and concise docstrings for Python
+globs: "**/*.py"
+alwaysApply: false
+---
+
+# Python style
+
+## Formatting (PEP 8)
+
+- Follow [PEP 8](https://peps.python.org/pep-0008/): naming (`snake_case` functions/vars, `PascalCase` classes), imports (stdlib → third party → local, one module per line in groups), line length (79 or 88 if the project uses Black—match `pyproject.toml`/formatter), spacing around operators and after commas, two blank lines before top-level classes/functions, one blank line between methods.
+- Prefer explicit, readable code over clever one-liners.
+
+## Docstrings
+
+- Every **public** class, method, and function should have a docstring: **what** it does and, when non-obvious, **args/returns/raises** in a compact form.
+- Keep descriptions **short and clear**—avoid repeating the name, boilerplate, or obvious facts ("gets the user" for `get_user`).
+- Use triple-double quotes. For simple cases, a one-line summary ending with a period is enough.
+
+- Private helpers (`_name`) may omit docstrings if the name and signature are self-explanatory; add a brief line if behavior is subtle.

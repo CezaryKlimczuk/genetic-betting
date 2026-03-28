@@ -1,0 +1,35 @@
+---
+description: Genetic-betting game engine layout, determinism, and extensibility. Use when adding or editing game simulation code under src/.
+globs: "src/**/*.py"
+alwaysApply: false
+---
+
+# Game engine conventions
+
+## Layering
+
+- **`config`**: Load **YAML** (not TOML) into a `GameConfig` (or similar) dataclass; use a YAML library added with **`uv add`**. No game logic in the loader.
+- **Core engine** (hand/round, match): State transitions only; **no** I/O, CLI, or GA orchestration.
+- **`strategies`**: `Protocol` or ABC for `choose_action(...)`; depend on a **public observation** type, not private engine details.
+
+## Money and types
+
+- Store money as **`int` whole dollars** end-to-end (no `float` for balances or pots).
+- Keep **RNG injectable** (`random.Random` or a small protocol) into `play_hand` / `run_match` for reproducible runs.
+
+## Betting grammar
+
+Implement the flow in [`AGENTS.md`](../../AGENTS.md): **check** = $0 for that decision; **call** = match. Specifically: P1 raise → P2 fold or **call**; P1 **check** → P2 **check** or **raise** (raise amount in config `min_raise`..`max_raise`); P2 raise → P1 fold or **call**. No re-raise.
+
+## Extensibility
+
+- Put tunable numbers (stacks, ante, raise min/max, card range, max rounds) in **YAML config**, not literals.
+- For **more players** or extra streets later, introduce a **`BettingRules`-style seam** (legal actions + apply) instead of hard-coding two-player branches everywhere.
+
+## Hot path
+
+- No logging in tight betting loops. Optional **event logs** only when callers opt in (tests, debugging).
+
+## Docstrings
+
+- Follow the project Python rule: public API documented; private helpers only when non-obvious.

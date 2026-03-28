@@ -1,0 +1,28 @@
+---
+description: Testing expectations for genetic-betting (pytest, invariants, table cases). Use when writing or editing tests/.
+globs: "tests/**/*.py"
+alwaysApply: false
+---
+
+# Testing conventions
+
+## Runner
+
+- Use **`pytest`**. Tests live under [`tests/`](tests/) once that directory exists.
+
+## Required invariants
+
+Where applicable, assert:
+
+- **Conservation**: Total dollars across wallets + pot is unchanged over a hand after any refunds.
+- **Termination**: Betting resolves in finite steps (this ruleset has **no re-raise loop**; still assert no infinite loops).
+
+## Style
+
+- **Table-driven** cases for: P1 check → P2 check (showdown); P1 check → P2 raise (within config bounds) → P1 fold / **call**; P1 raise → P2 fold / **call**; tie split; **odd-dollar** pot split; short all-in refund.
+- Prefer **deterministic strategies** (fixed sequences) over random ones for correctness.
+- Use **small integer dollar amounts** and **fixed RNG seeds** when randomness is involved.
+
+## Docstrings
+
+- Omit test docstrings unless the scenario is non-obvious; a short comment is enough for tricky edge cases.
