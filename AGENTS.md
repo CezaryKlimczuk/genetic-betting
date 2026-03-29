@@ -47,7 +47,7 @@ There is **no re-raise chain**: at most **one** raise in a round (by Player 2, a
 
 | Path | Role |
 |------|------|
-| `app/` | Application modules—`config`, `actions` / `actor_view`, **`hand.py`** (one hand), **`match.py`** (`run_match`), **`strategies.py`** (`HotseatStrategy`, `ScriptedStrategy`, `RandomLegalStrategy`, `legal_actions_for_view`), **`cli.py`** (argparse hotseat driver)—run with `uv run python -m app.cli`, not an installable distribution |
+| `app/` | Application modules—`config`, `actions` / `actor_view`, **`hand.py`** (one hand), **`match.py`** (`run_match`), **`strategies.py`** (`HotseatStrategy`, `ScriptedStrategy`, `RandomLegalStrategy`, `legal_actions_for_view`), **`cli.py`** (`hotseat_menu_actions`, `hotseat_action_completes_hand`, argparse hotseat driver)—run with `uv run python -m app.cli`, not an installable distribution |
 | `config/` | Example game **YAML** (stacks, ante, `min_raise` / `max_raise`, card range, max rounds) |
 | `tests/` | `pytest` (`pythonpath` includes repo root so `import app` works) |
 | `scripts/` | Optional throughput benchmark |
@@ -75,7 +75,8 @@ Adjust to match the repo’s `uv`/`pytest` setup as it evolves.
 - Run: **`uv run python -m app.cli`**
 - **`--config`**: path to game YAML (default: **`config/game.example.yaml`**).
 - **`--seed`**: optional `int` seed for `random.Random` when dealing cards (omit for nondeterministic deals).
-- Each prompt shows only the **current** seat’s hole card, balances, pot, and legal actions (numbered menu). **Opponent’s card is not shown** until the hand reaches **showdown**; if the hand ends in a **fold**, cards stay hidden for that hand.
+- Each prompt shows only the **current** seat’s hole card, balances, pot, and a **fixed-order** numbered menu: fold, check, call, then every raise amount in **`min_raise`..`max_raise`** from config. Illegal rows are still listed and marked **`(NOT AVAILABLE)`** so action indices stay stable (useful for neural-net outputs tied to one slot per action kind/size). **Opponent’s card is not shown** until **showdown**; on a **fold**, hole cards stay hidden.
+- After a seat submits a **legal** choice, the CLI pauses (**Enter**): if another decision remains in the hand, it asks to pass the keyboard to the other seat; if the action ends the hand (fold, call, or check-down), it asks to continue to **hand results** instead. After each hand, it prints a spaced hand summary and pauses (**Enter**) before the next hand when the match continues, including **which seat opens** as Player 1.
 - **`run_match`** accepts optional **`before_each_hand`** and **`after_each_hand`** callbacks (used by the CLI to print hand banners and outcomes without putting I/O in the engine core).
 
 ## Definition of done

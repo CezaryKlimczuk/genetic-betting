@@ -9,10 +9,13 @@ from pathlib import Path
 
 from app.actions import Action, ActionKind
 from app.actor_view import ActorView
-from app.config import load_game_config
+from app.config import GameConfig, load_game_config
 from app.hand import HandResult
 from app.match import run_match
-from app.strategies import HotseatStrategy, legal_actions_for_view
+from app.strategies import HotseatStrategy
+
+# Spaces between the longest action label and "(NOT AVAILABLE)" for readability.
+_MENU_GAP_BEFORE_UNAVAILABLE = 4
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -52,12 +55,68 @@ def _format_action_line(action: Action) -> str:
     raise AssertionError(f"Unknown action: {action!r}")
 
 
+def hotseat_menu_actions(config: GameConfig, view: ActorView) -> list[tuple[Action, bool]]:
+    """Return fixed-slot menu rows: ``(action, is_legal)`` for this view.
+
+    Order is stable for training: fold, check, call, then every raise size in
+    ``[config.min_raise, config.max_raise]`` inclusive.
+    """
+    rows: list[tuple[Action, bool]] = [
+        (Action.fold(), view.can_fold),
+        (Action.check(), view.can_check),
+        (Action.call(), view.can_call),
+    ]
+    for amt in range(config.min_raise, config.max_raise + 1):
+        legal = (
+            view.can_raise
+            and view.raise_amount_min is not None
+            and view.raise_amount_max is not None
+            and view.raise_amount_min <= amt <= view.raise_amount_max
+        )
+        rows.append((Action.raise_(amt), legal))
+    return rows
+
+
+def hotseat_action_completes_hand(view: ActorView, action: Action) -> bool:
+    """Return True if this choice finishes the current hand (no further decisions).
+
+    Mirrors ``app.hand`` betting nodes: fold always ends; call ends after a raise;
+    check ends only when Player 2 checks back after Player 1 checked; raise does not.
+    """
+    if action.kind is ActionKind.FOLD:
+        return True
+    if action.kind is ActionKind.CALL:
+        return True
+    if action.kind is ActionKind.RAISE:
+        return False
+    if action.kind is ActionKind.CHECK:
+        # Player 2 after Player 1 checked: ``play_hand`` sets ``can_fold`` false here.
+        return (
+            not view.can_fold
+            and view.amount_to_call == 0
+            and view.can_check
+        )
+    raise AssertionError(f"Unknown action: {action!r}")
+
+
 def prompt_action_from_view(
-    _rng: random.Random, view: ActorView, file=sys.stdout
+    _rng: random.Random,
+    view: ActorView,
+    config: GameConfig,
+    *,
+    file=sys.stdout,
+    submit_pause: bool = True,
 ) -> Action:
-    """Print the actor view (own card only) and read a menu choice from stdin."""
-    legal = legal_actions_for_view(view)
-    if not legal:
+    """Print the actor view (own card only) and read a menu choice from stdin.
+
+    The menu always lists the same action slots (fold, check, call, then every
+    configured raise size). Illegal rows are shown with ``(NOT AVAILABLE)``.
+    After a legal choice, optionally pauses: either a handoff to the next actor
+    or a prompt to continue to hand results when this action ends the hand.
+    """
+    menu = hotseat_menu_actions(config, view)
+    legal_actions = [a for a, ok in menu if ok]
+    if not legal_actions:
         msg = "No legal actions for this view."
         raise RuntimeError(msg)
 
@@ -73,19 +132,50 @@ def prompt_action_from_view(
         print(f"Amount to call (extra beyond ante): ${view.amount_to_call}", file=file)
     else:
         print("Nothing to call yet (check or raise / fold as offered).", file=file)
-    print("Legal moves:", file=file)
-    for i, a in enumerate(legal, start=1):
-        print(f"  {i}) {_format_action_line(a)}", file=file)
+    print("Actions:", file=file)
+    labels = [_format_action_line(a) for a, _ in menu]
+    label_width = max(len(s) for s in labels) if labels else 0
+    for i, (ok, label) in enumerate(zip((ok for _, ok in menu), labels, strict=True), start=1):
+        if ok:
+            print(f"  {i})  {label}", file=file)
+        else:
+            spacer = label_width - len(label) + _MENU_GAP_BEFORE_UNAVAILABLE
+            print(f"  {i})  {label}{' ' * spacer}(NOT AVAILABLE)", file=file)
 
-    while True:
+    chosen: Action | None = None
+    while chosen is None:
         raw = input("Enter choice number: ").strip()
         if not raw.isdigit():
             print("Please enter a positive integer.", file=file)
             continue
         n = int(raw)
-        if 1 <= n <= len(legal):
-            return legal[n - 1]
-        print(f"Choose 1–{len(legal)}.", file=file)
+        if not (1 <= n <= len(menu)):
+            print(f"Choose 1–{len(menu)}.", file=file)
+            continue
+        act, ok = menu[n - 1]
+        if not ok:
+            print("That action is not available. Pick a numbered row without (NOT AVAILABLE).", file=file)
+            continue
+        chosen = act
+
+    if submit_pause:
+        print(file=file)
+        print(f"Seat {view.seat} submitted: {_format_action_line(chosen)}.", file=file)
+        if hotseat_action_completes_hand(view, chosen):
+            print(
+                "This action ends the hand. Press Enter to see the hand results.",
+                file=file,
+            )
+        else:
+            other = 1 - view.seat
+            print(
+                f"Pass the keyboard to seat {other}. Press Enter when seat {other} "
+                "is ready to act.",
+                file=file,
+            )
+        input()
+
+    return chosen
 
 
 def _before_hand(hand_no: int, stacks: tuple[int, int], first_to_act: int) -> None:
@@ -96,28 +186,40 @@ def _before_hand(hand_no: int, stacks: tuple[int, int], first_to_act: int) -> No
     print("=" * 54)
 
 
-def _after_hand(result: HandResult) -> None:
+def _format_hand_outcome(result: HandResult) -> list[str]:
+    """Human-readable outcome lines for one hand."""
+    lines: list[str] = []
     c0, c1 = result.cards
     if result.reason == "fold":
         w = result.winner
         assert w is not None
         loser = 1 - w
-        print()
-        print(
+        lines.append(
             f"Hand over: seat {loser} folded. Seat {w} wins the pot. "
             "Hole cards stay hidden."
         )
     elif result.reason == "showdown_tie":
-        print()
-        print(f"Showdown — cards: seat 0 = {c0}, seat 1 = {c1}. Tie; pot split.")
-        print("(Odd chip from an odd pot goes to seat 0.)")
+        lines.append(
+            f"Showdown — cards: seat 0 = {c0}, seat 1 = {c1}. Tie; pot split."
+        )
+        lines.append("(Odd chip from an odd pot goes to seat 0.)")
     else:
         w = result.winner
-        print()
-        print(f"Showdown — cards: seat 0 = {c0}, seat 1 = {c1}. Seat {w} wins the pot.")
-
+        lines.append(
+            f"Showdown — cards: seat 0 = {c0}, seat 1 = {c1}. Seat {w} wins the pot."
+        )
     fs = result.final_stacks
-    print(f"Stacks after hand: seat 0 = ${fs[0]}, seat 1 = ${fs[1]}")
+    lines.append(f"Stacks after hand: seat 0 = ${fs[0]}, seat 1 = ${fs[1]}")
+    return lines
+
+
+def _match_can_continue(
+    config: GameConfig, stacks: tuple[int, int], hands_completed: int
+) -> bool:
+    """Whether ``run_match`` would deal another hand after ``hands_completed`` hands."""
+    if hands_completed >= config.max_rounds_per_match:
+        return False
+    return stacks[0] >= config.ante and stacks[1] >= config.ante
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -130,17 +232,38 @@ def main(argv: list[str] | None = None) -> None:
 
     config = load_game_config(cfg_path)
     rng = random.Random(args.seed)
+    hands_completed = 0
 
     print(f"Loaded config from {cfg_path.resolve()}")
     if args.seed is not None:
         print(f"Deal seed: {args.seed}")
     print(
-        "Hotseat: pass the keyboard between seats. Menus show only the current "
-        "player's hole card until showdown."
+        "Hotseat: pass the keyboard between seats. Menus list every action in a "
+        "fixed order; illegal rows are marked (NOT AVAILABLE). Only your hole card "
+        "is shown until showdown."
     )
 
-    human0 = HotseatStrategy(prompt_action_from_view)
-    human1 = HotseatStrategy(prompt_action_from_view)
+    def choose(_r: random.Random, view: ActorView) -> Action:
+        return prompt_action_from_view(_r, view, config)
+
+    human0 = HotseatStrategy(choose)
+    human1 = HotseatStrategy(choose)
+
+    def after_each_hand(result: HandResult) -> None:
+        nonlocal hands_completed
+        hands_completed += 1
+        print()
+        print()
+        for line in _format_hand_outcome(result):
+            print(line)
+        print()
+        if _match_can_continue(config, result.final_stacks, hands_completed):
+            next_first = hands_completed % 2
+            print(
+                f"Next hand: Player 1 (opens the betting) will be seat {next_first}."
+            )
+            print()
+            input("Press Enter to start the next hand.")
 
     result = run_match(
         config,
@@ -148,7 +271,7 @@ def main(argv: list[str] | None = None) -> None:
         human0,
         human1,
         before_each_hand=_before_hand,
-        after_each_hand=_after_hand,
+        after_each_hand=after_each_hand,
     )
 
     print()
