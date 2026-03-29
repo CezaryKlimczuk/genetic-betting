@@ -6,7 +6,7 @@ todos:
     content: Add plans/implementation-plan.md to repo with task IDs T1–T9, deps, architecture (post-approval)
     status: pending
   - id: t1-scaffold
-    content: "T1: uv + hatchling src layout, package, console script entry, import smoke"
+    content: "T1: uv + simple app layout (app/), pytest pythonpath, no installable package"
     status: pending
   - id: t2-config
     content: "T2: config/game.example.yaml + GameConfig load/validate + tests"
@@ -46,12 +46,13 @@ After you approve this plan, an agent should **add a single file** in the repo: 
 ## Dependencies (rationale)
 
 
-| Need                                     | Package       | How to add (per `[.cursor/rules/dependencies-uv.mdc](.cursor/rules/dependencies-uv.mdc)`)                                                                                                                                                                              |
-| ---------------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| YAML game config                         | `pyyaml`      | `uv add pyyaml`                                                                                                                                                                                                                                                        |
-| Tests                                    | `pytest`      | `uv add --dev pytest`                                                                                                                                                                                                                                                  |
-| Editable `src/` install + console script | build backend | Use `**uv add --dev hatchling`** (or equivalent `uv`-supported backend) and set `**[tool.hatch.build.targets.wheel]`** `packages = ["src/genetic_betting"]` in `[pyproject.toml](pyproject.toml)`—this is **tool/build config**, not hand-editing the dependency list. |
+| Need             | Package  | How to add (per `[.cursor/rules/dependencies-uv.mdc](.cursor/rules/dependencies-uv.mdc)`) |
+| ---------------- | -------- | ----------------------------------------------------------------------------------------- |
+| YAML game config | `pyyaml` | `uv add pyyaml`                                                                           |
+| Tests            | `pytest` | `uv add --dev pytest`                                                                     |
 
+
+**No installable distribution**: do **not** add a build backend (e.g. hatchling), `[project.scripts]`, or wheel layout for v1. The app is run as `**uv run python -m app.cli`** (or `uv run python app/cli.py` if you prefer a script entry without `-m`). Tests use `**[tool.pytest.ini_options] pythonpath = ["."]`** so `import app....` resolves from the repo root without `pip install -e .`.
 
 **Stdlib only** on the hot path: `random.Random` (injected), `dataclasses`, `enum`/`typing`, `argparse` for CLI.
 
@@ -70,7 +71,7 @@ flowchart TB
     View[print_turn_private_cards]
     Input[stdin_choices]
   end
-  subgraph core [src_genetic_betting]
+  subgraph core [app_package]
     Config[yaml_to_GameConfig]
     Hand[play_round_or_hand]
     Match[run_match]
@@ -106,12 +107,12 @@ flowchart TB
 
 ## Tasks (execute in order; each has a clear “done” criterion)
 
-**T1 — Project scaffold**  
+**T1 — Project scaffold (simple app, not an installable package)**  
 
-- `src/genetic_betting/` package with `__init__.py` exporting only what CLI/tests need initially.  
-- `pyproject.toml`: `requires-python >=3.13`, build backend + wheel packages path, `**[project.scripts]`** entry (e.g. `genetic-betting-play = "genetic_betting.cli:main"`).  
-- Add dependencies via `**uv add`** / `**uv add --dev`** only.  
-- **Done**: `uv sync` succeeds; `uv run python -c "import genetic_betting"` works.
+- Layout: an `**app/`** directory with normal modules (e.g. `app/cli.py`, `app/config.py`, …). This is only a **Python import package** for clean splits—not something you `pip install` or publish.  
+- `[pyproject.toml](pyproject.toml)`: keep `**requires-python >=3.13`** and dependencies managed by `**uv add`** / `**uv add --dev`** only. **No** `[build-system]`, **no** `[project.scripts]`, **no** hatchling/setuptools wheel config.  
+- Pytest: set `**pythonpath = ["."]`** (or equivalent) so tests can `import app....` from the repo root.  
+- **Done**: `uv sync` succeeds; `uv run python -m app.cli --help` (or the chosen entry) runs without installing an editable package.
 
 **T2 — Example YAML + `GameConfig`**  
 
@@ -145,7 +146,7 @@ flowchart TB
 
 **T7 — Hotseat CLI**  
 
-- `cli.py`: `--config` defaulting to `config/game.example.yaml`, loop calling `run_match` or lower-level “one hand at a time” driver with printed prompts.  
+- `app/cli.py` (or equivalent): `--config` defaulting to `config/game.example.yaml`, loop calling `run_match` or lower-level “one hand at a time” driver with printed prompts.  
 - Menus: map keys/digits to fold/call/check and raise amount selection when legal (list valid raise integers).  
 - **Done**: two people can complete one match locally; no opponent card leak before showdown.
 

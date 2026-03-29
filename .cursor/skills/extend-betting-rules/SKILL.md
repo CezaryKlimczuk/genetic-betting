@@ -10,7 +10,7 @@ description: >-
 
 ## Prerequisites
 
-If there is no `src/` package yet, follow [`AGENTS.md`](../../AGENTS.md) and the owner’s plan to add code first; then use this checklist.
+If there is no `app/` tree yet, follow [`AGENTS.md`](../../AGENTS.md) and the owner’s plan to add code first; then use this checklist.
 
 ## Checklist
 

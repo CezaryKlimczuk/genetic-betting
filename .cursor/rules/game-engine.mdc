@@ -1,6 +1,6 @@
 ---
-description: Genetic-betting game engine layout, determinism, and extensibility. Use when adding or editing game simulation code under src/.
-globs: "src/**/*.py"
+description: Genetic-betting game engine layout, determinism, and extensibility. Use when adding or editing game simulation code under app/.
+globs: "app/**/*.py"
 alwaysApply: false
 ---
 

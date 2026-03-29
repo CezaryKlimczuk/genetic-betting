@@ -42,9 +42,9 @@ There is **no re-raise chain**: at most **one** raise in a round (by Player 2, a
 
 | Path | Role |
 |------|------|
-| `src/genetic_betting/` | Package: YAML config load, actions, hand/round, match, strategies |
+| `app/` | Application modules (YAML config load, actions, hand/round, match, strategies, CLI)—run with `uv run python -m app.cli`, not an installable distribution |
 | `config/` | Example game **YAML** (dollar amounts, ante, `min_raise` / `max_raise`, card range, max rounds) |
-| `tests/` | `pytest` |
+| `tests/` | `pytest` (`pythonpath` includes repo root so `import app` works) |
 | `scripts/` | Optional throughput benchmark |
 
 ## Config format

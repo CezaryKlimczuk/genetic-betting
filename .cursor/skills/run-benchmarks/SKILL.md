@@ -29,7 +29,7 @@ Adjust the script name/path to match what you add.
 
 ## Adding a benchmark
 
-1. Keep timers **outside** the inner betting loop (script or driver), not inside per-action hot paths.
+1. Keep timers **outside** the inner betting loop (`scripts/` or CLI driver), not inside per-action hot paths in `app/`.
 2. Document usage in [`AGENTS.md`](../../AGENTS.md).
 
 ## Pitfalls
