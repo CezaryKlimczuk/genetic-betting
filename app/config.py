@@ -34,7 +34,8 @@ class GameConfig:
     card_max: int
 
 
-def _strict_int(name: str, value: Any) -> int:
+def strict_int(name: str, value: Any) -> int:
+    """Return ``value`` if it is a true ``int`` (rejects ``bool`` and floats)."""
     if type(value) is bool:
         raise ValueError(f"{name} must be an integer, not a boolean.")
     if type(value) is not int:
@@ -51,13 +52,13 @@ def _validate_config_fields(data: dict[str, Any]) -> GameConfig:
     if missing:
         raise ValueError(f"Missing config keys: {sorted(missing)}")
 
-    starting_stack = _strict_int("starting_stack", data["starting_stack"])
-    ante = _strict_int("ante", data["ante"])
-    min_raise = _strict_int("min_raise", data["min_raise"])
-    max_raise = _strict_int("max_raise", data["max_raise"])
-    max_rounds = _strict_int("max_rounds_per_match", data["max_rounds_per_match"])
-    card_min = _strict_int("card_min", data["card_min"])
-    card_max = _strict_int("card_max", data["card_max"])
+    starting_stack = strict_int("starting_stack", data["starting_stack"])
+    ante = strict_int("ante", data["ante"])
+    min_raise = strict_int("min_raise", data["min_raise"])
+    max_raise = strict_int("max_raise", data["max_raise"])
+    max_rounds = strict_int("max_rounds_per_match", data["max_rounds_per_match"])
+    card_min = strict_int("card_min", data["card_min"])
+    card_max = strict_int("card_max", data["card_max"])
 
     if ante <= 0:
         raise ValueError("ante must be positive.")

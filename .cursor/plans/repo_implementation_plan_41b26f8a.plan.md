@@ -13,7 +13,7 @@ todos:
     status: completed
   - id: t3-actions-view
     content: "T3: Action + ActorView types + tests"
-    status: pending
+    status: completed
   - id: t4-hand-engine
     content: "T4: single-hand FSM, refunds, split pot + conservation tests"
     status: pending
