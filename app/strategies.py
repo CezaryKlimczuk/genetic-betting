@@ -9,29 +9,14 @@ from collections.abc import Iterable
 from app.actions import Action
 from app.actor_view import ActorView
 from app.hand import Strategy
+from app.legal_actions import legal_actions_for_view
 
-
-def legal_actions_for_view(view: ActorView) -> list[Action]:
-    """Reconstruct legal actions from an :class:`~app.actor_view.ActorView`.
-
-    Matches the engine in ``app.hand`` when ``can_fold`` reflects the active
-    node (notably Player 2 after Player 1 checked may not fold).
-    """
-    actions: list[Action] = []
-    if view.can_fold:
-        actions.append(Action.fold())
-    if view.can_check:
-        actions.append(Action.check())
-    if view.can_call:
-        actions.append(Action.call())
-    if view.can_raise:
-        if view.raise_amount_min is None or view.raise_amount_max is None:
-            raise ValueError("can_raise requires raise_amount_min/max.")
-        actions.extend(
-            Action.raise_(a)
-            for a in range(view.raise_amount_min, view.raise_amount_max + 1)
-        )
-    return actions
+__all__ = [
+    "HotseatStrategy",
+    "RandomLegalStrategy",
+    "ScriptedStrategy",
+    "legal_actions_for_view",
+]
 
 
 class HotseatStrategy:

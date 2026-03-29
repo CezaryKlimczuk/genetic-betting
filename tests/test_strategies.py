@@ -11,11 +11,14 @@ from app.actions import Action, ActionKind
 from app.actor_view import ActorView
 from app.config import GameConfig
 from app.match import MatchResult, run_match
-from app.strategies import (
-    RandomLegalStrategy,
-    ScriptedStrategy,
-    legal_actions_for_view,
-)
+import app.legal_actions as legal_actions_mod
+import app.strategies as strategies_mod
+from app.legal_actions import legal_actions_for_view
+from app.strategies import RandomLegalStrategy, ScriptedStrategy
+
+
+def test_strategies_reexports_legal_actions_for_view() -> None:
+    assert strategies_mod.legal_actions_for_view is legal_actions_mod.legal_actions_for_view
 
 _VIEW_CFG = GameConfig(
     starting_stack=50,
@@ -55,6 +58,131 @@ def test_legal_actions_after_check_line_excludes_fold_when_can_fold_false() -> N
     assert Action.check() in legal
     assert Action.raise_(1) in legal
     assert Action.raise_(3) in legal
+
+
+_TABLE_CFG = GameConfig(
+    starting_stack=100,
+    ante=2,
+    min_raise=2,
+    max_raise=5,
+    max_rounds_per_match=10,
+    card_min=1,
+    card_max=10,
+)
+
+
+def _table_view(**kwargs: Any) -> ActorView:
+    base: dict[str, Any] = dict(
+        seat=0,
+        own_card=3,
+        opponent_card=None,
+        wallet_self=40,
+        wallet_opponent=40,
+        pot=4,
+        amount_to_call=0,
+        can_check=True,
+        can_fold=True,
+        can_call=False,
+        can_raise=False,
+        raise_amount_min=None,
+        raise_amount_max=None,
+    )
+    base.update(kwargs)
+    return ActorView.from_config(_TABLE_CFG, **base)
+
+
+@pytest.mark.parametrize(
+    ("name", "view_kwargs", "expected"),
+    [
+        (
+            "p1_open_with_raises",
+            dict(
+                seat=0,
+                wallet_self=50,
+                amount_to_call=0,
+                can_check=True,
+                can_fold=True,
+                can_call=False,
+                can_raise=True,
+                raise_amount_min=2,
+                raise_amount_max=5,
+            ),
+            [
+                Action.fold(),
+                Action.check(),
+                *[Action.raise_(a) for a in range(2, 6)],
+            ],
+        ),
+        (
+            "p1_open_no_raise_stack_below_min",
+            dict(
+                seat=1,
+                wallet_self=1,
+                amount_to_call=0,
+                can_check=True,
+                can_fold=True,
+                can_call=False,
+                can_raise=False,
+                raise_amount_min=None,
+                raise_amount_max=None,
+            ),
+            [Action.fold(), Action.check()],
+        ),
+        (
+            "facing_raise_fold_call",
+            dict(
+                seat=1,
+                amount_to_call=7,
+                can_check=False,
+                can_fold=True,
+                can_call=True,
+                can_raise=False,
+                raise_amount_min=None,
+                raise_amount_max=None,
+            ),
+            [Action.fold(), Action.call()],
+        ),
+        (
+            "facing_raise_fold_only_zero_wallet",
+            dict(
+                seat=0,
+                wallet_self=0,
+                amount_to_call=4,
+                can_check=False,
+                can_fold=True,
+                can_call=False,
+                can_raise=False,
+                raise_amount_min=None,
+                raise_amount_max=None,
+            ),
+            [Action.fold()],
+        ),
+        (
+            "p2_after_p1_check_check_and_raises",
+            dict(
+                seat=1,
+                amount_to_call=0,
+                can_check=True,
+                can_fold=False,
+                can_call=False,
+                can_raise=True,
+                raise_amount_min=2,
+                raise_amount_max=4,
+            ),
+            [
+                Action.check(),
+                Action.raise_(2),
+                Action.raise_(3),
+                Action.raise_(4),
+            ],
+        ),
+    ],
+)
+def test_legal_actions_characterization_table(
+    name: str, view_kwargs: dict[str, Any], expected: list[Action]
+) -> None:
+    _ = name
+    assert legal_actions_for_view(_table_view(**view_kwargs)) == expected
 
 
 def test_scripted_strategy_drains_in_order() -> None:

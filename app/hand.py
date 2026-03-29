@@ -30,6 +30,7 @@ from typing import Literal
 from app.actions import Action, ActionKind
 from app.actor_view import ActorView
 from app.config import GameConfig, strict_int
+from app.legal_actions import legal_actions_for_view
 
 Strategy = Callable[[random.Random, ActorView], Action]
 
@@ -72,29 +73,6 @@ def _raise_amounts(config: GameConfig, max_extra: int) -> list[int]:
     if hi < config.min_raise:
         return []
     return list(range(config.min_raise, hi + 1))
-
-
-def _legal_actions_p1_first(
-    config: GameConfig,
-    seat: int,
-    stacks: tuple[int, int],
-) -> list[Action]:
-    """Legal actions for Player 1 (nothing extra to call yet)."""
-    s = stacks[seat]
-    actions: list[Action] = [Action.fold(), Action.check()]
-    for a in _raise_amounts(config, s):
-        actions.append(Action.raise_(a))
-    return actions
-
-
-def _legal_actions_facing_extra(
-    stacks: tuple[int, int], seat: int, amount_to_call: int
-) -> list[Action]:
-    """Facing ``amount_to_call`` (fold / call if stack can put at least $1)."""
-    actions: list[Action] = [Action.fold()]
-    if amount_to_call > 0 and stacks[seat] > 0:
-        actions.append(Action.call())
-    return actions
 
 
 def _build_view(
@@ -312,8 +290,7 @@ def play_hand(
         return strategies[seat](rng, view)
 
     # --- Player 1 (first actor) ---
-    legal1 = _legal_actions_p1_first(config, p1, (st[0], st[1]))
-    raise_opts1 = [a.amount_dollars for a in legal1 if a.kind is ActionKind.RAISE]
+    raise_opts1 = _raise_amounts(config, st[p1])
     can_r1 = len(raise_opts1) > 0
     v1 = _build_view(
         config,
@@ -327,6 +304,7 @@ def play_hand(
         raise_amount_min=min(raise_opts1) if can_r1 else None,
         raise_amount_max=max(raise_opts1) if can_r1 else None,
     )
+    legal1 = legal_actions_for_view(v1)
     a1 = choose(p1, v1)
     if a1 not in legal1:
         raise ValueError(f"Illegal action from seat {p1}: {a1!r}")
@@ -358,7 +336,6 @@ def play_hand(
             return _resolve_showdown(pot, st, cards, first_to_act)
 
         # --- Player 2: fold or call ---
-        legal2 = _legal_actions_facing_extra((st[0], st[1]), p2, to_call)
         v2 = _build_view(
             config,
             p2,
@@ -371,6 +348,7 @@ def play_hand(
             raise_amount_min=None,
             raise_amount_max=None,
         )
+        legal2 = legal_actions_for_view(v2)
         a2 = choose(p2, v2)
         if a2 not in legal2:
             raise ValueError(f"Illegal action from seat {p2}: {a2!r}")
@@ -390,10 +368,7 @@ def play_hand(
     if a1.kind is not ActionKind.CHECK:
         raise ValueError(f"Unexpected action from first actor: {a1!r}")
 
-    legal2b: list[Action] = [Action.check()]
-    for amt in _raise_amounts(config, st[p2]):
-        legal2b.append(Action.raise_(amt))
-    raise_opts2 = [x.amount_dollars for x in legal2b if x.kind is ActionKind.RAISE]
+    raise_opts2 = _raise_amounts(config, st[p2])
     can_r2 = len(raise_opts2) > 0
 
     v2b = _build_view(
@@ -409,6 +384,7 @@ def play_hand(
         raise_amount_max=max(raise_opts2) if can_r2 else None,
         can_fold=False,
     )
+    legal2b = legal_actions_for_view(v2b)
     a2b = choose(p2, v2b)
     if a2b not in legal2b:
         raise ValueError(f"Illegal action from seat {p2}: {a2b!r}")
@@ -435,7 +411,6 @@ def play_hand(
     if to_call1 == 0:
         return _resolve_showdown(pot, st, cards, first_to_act)
 
-    legal1b = _legal_actions_facing_extra((st[0], st[1]), p1, to_call1)
     v1b = _build_view(
         config,
         p1,
@@ -448,6 +423,7 @@ def play_hand(
         raise_amount_min=None,
         raise_amount_max=None,
     )
+    legal1b = legal_actions_for_view(v1b)
     a1b = choose(p1, v1b)
     if a1b not in legal1b:
         raise ValueError(f"Illegal action from seat {p1}: {a1b!r}")
