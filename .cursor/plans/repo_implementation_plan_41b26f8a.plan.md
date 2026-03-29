@@ -24,13 +24,13 @@ todos:
     content: "T6: ScriptedStrategy + RandomLegalStrategy + integration test"
     status: completed
   - id: t7-cli
-    content: "T7: hotseat CLI, private cards until showdown"
+    content: "T7: hotseat CLI, private cards until showdown; review & sync AGENTS.md, .cursor/rules/, .cursor/skills/ with implemented behavior"
     status: pending
   - id: t8-readme
-    content: "T8: README usage for uv and play command"
+    content: "T8: README usage for uv and play command; review & sync AGENTS.md, .cursor/rules/, .cursor/skills/ with implemented behavior"
     status: pending
   - id: t9-benchmark
-    content: "T9 (optional): scripts/benchmark_hands.py"
+    content: "T9 (optional): scripts/benchmark_hands.py; review & sync AGENTS.md, .cursor/rules/, .cursor/skills/ with implemented behavior"
     status: pending
 isProject: false
 ---
@@ -148,16 +148,19 @@ flowchart TB
 
 - `app/cli.py` (or equivalent): `--config` defaulting to `config/game.example.yaml`, loop calling `run_match` or lower-level “one hand at a time” driver with printed prompts.  
 - Menus: map keys/digits to fold/call/check and raise amount selection when legal (list valid raise integers).  
+- **Subtask — agent/docs alignment**: Review `[AGENTS.md](AGENTS.md)`, all files under `[.cursor/rules/](.cursor/rules/)`, and project skills under `[.cursor/skills/](.cursor/skills/)`; update them so descriptions, commands, and conventions match the code and CLI behavior delivered in T7 (and any cumulative changes from earlier tasks).  
 - **Done**: two people can complete one match locally; no opponent card leak before showdown.
 
 **T8 — Documentation**  
 
 - Update `[README.md](README.md)`: prerequisites (`uv`), `uv sync`, how to run the console script, config file meaning.  
+- **Subtask — agent/docs alignment**: Same review/update as T7—keep `[AGENTS.md](AGENTS.md)`, `.cursor/rules/`, and `.cursor/skills/` consistent with the README and the repo after T8.  
 - **Done**: new user can play without reading source.
 
 **T9 — Optional benchmark** (stretch)  
 
 - `[scripts/benchmark_hands.py](scripts/benchmark_hands.py)`: N hands with `RandomLegalStrategy`, print hands/sec.  
+- **Subtask — agent/docs alignment**: If the benchmark (or related perf notes) ships, refresh `[AGENTS.md](AGENTS.md)`, `.cursor/rules/`, and `.cursor/skills/` (e.g. `[.cursor/skills/run-benchmarks/SKILL.md](.cursor/skills/run-benchmarks/SKILL.md)`) so scripts, thresholds, and workflows stay accurate.  
 - **Done**: `uv run python scripts/benchmark_hands.py` runs.
 
 ---
