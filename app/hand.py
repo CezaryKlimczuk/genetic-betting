@@ -209,6 +209,55 @@ def _award_split_pot(pot: int, stacks: list[int]) -> None:
     stacks[1] += half
 
 
+def _finish_hand_fold(
+    winner: int,
+    pot: int,
+    stacks: list[int],
+    cards: tuple[int, int],
+    first_to_act: int,
+) -> HandResult:
+    """Award full ``pot`` to ``winner`` after an opponent fold."""
+    _award_pot_winner(pot, stacks, winner)
+    return HandResult(
+        winner=winner,
+        reason="fold",
+        final_stacks=(stacks[0], stacks[1]),
+        cards=cards,
+        first_to_act=first_to_act,
+    )
+
+
+def _resolve_showdown(
+    pot: int,
+    stacks: list[int],
+    cards: tuple[int, int],
+    first_to_act: int,
+) -> HandResult:
+    """Compare hole cards, split on tie or award full ``pot`` to high card."""
+    c0, c1 = cards[0], cards[1]
+    if c0 > c1:
+        w = 0
+    elif c1 > c0:
+        w = 1
+    else:
+        _award_split_pot(pot, stacks)
+        return HandResult(
+            winner=None,
+            reason="showdown_tie",
+            final_stacks=(stacks[0], stacks[1]),
+            cards=cards,
+            first_to_act=first_to_act,
+        )
+    _award_pot_winner(pot, stacks, w)
+    return HandResult(
+        winner=w,
+        reason="showdown",
+        final_stacks=(stacks[0], stacks[1]),
+        cards=cards,
+        first_to_act=first_to_act,
+    )
+
+
 def play_hand(
     config: GameConfig,
     rng: random.Random,
@@ -283,14 +332,7 @@ def play_hand(
         raise ValueError(f"Illegal action from seat {p1}: {a1!r}")
 
     if a1.kind is ActionKind.FOLD:
-        _award_pot_winner(pot, st, p2)
-        return HandResult(
-            winner=p2,
-            reason="fold",
-            final_stacks=(st[0], st[1]),
-            cards=cards,
-            first_to_act=first_to_act,
-        )
+        return _finish_hand_fold(p2, pot, st, cards, first_to_act)
 
     if a1.kind is ActionKind.CALL:
         raise ValueError("Illegal call with nothing to match (use check).")
@@ -313,27 +355,7 @@ def play_hand(
 
         to_call = round_extra[p1] - round_extra[p2]
         if to_call == 0:
-            if cards[p1] > cards[p2]:
-                w = p1
-            elif cards[p2] > cards[p1]:
-                w = p2
-            else:
-                _award_split_pot(pot, st)
-                return HandResult(
-                    winner=None,
-                    reason="showdown_tie",
-                    final_stacks=(st[0], st[1]),
-                    cards=cards,
-                    first_to_act=first_to_act,
-                )
-            _award_pot_winner(pot, st, w)
-            return HandResult(
-                winner=w,
-                reason="showdown",
-                final_stacks=(st[0], st[1]),
-                cards=cards,
-                first_to_act=first_to_act,
-            )
+            return _resolve_showdown(pot, st, cards, first_to_act)
 
         # --- Player 2: fold or call ---
         legal2 = _legal_actions_facing_extra((st[0], st[1]), p2, to_call)
@@ -354,14 +376,7 @@ def play_hand(
             raise ValueError(f"Illegal action from seat {p2}: {a2!r}")
 
         if a2.kind is ActionKind.FOLD:
-            _award_pot_winner(pot, st, p1)
-            return HandResult(
-                winner=p1,
-                reason="fold",
-                final_stacks=(st[0], st[1]),
-                cards=cards,
-                first_to_act=first_to_act,
-            )
+            return _finish_hand_fold(p1, pot, st, cards, first_to_act)
 
         # call (including all-in for less)
         pay = min(to_call, st[p2])
@@ -370,27 +385,7 @@ def play_hand(
         round_extra[p2] += pay
         pot, st = _apply_refund_if_mismatch(pot, st, round_extra)
 
-        if cards[p1] > cards[p2]:
-            w = p1
-        elif cards[p2] > cards[p1]:
-            w = p2
-        else:
-            _award_split_pot(pot, st)
-            return HandResult(
-                winner=None,
-                reason="showdown_tie",
-                final_stacks=(st[0], st[1]),
-                cards=cards,
-                first_to_act=first_to_act,
-            )
-        _award_pot_winner(pot, st, w)
-        return HandResult(
-            winner=w,
-            reason="showdown",
-            final_stacks=(st[0], st[1]),
-            cards=cards,
-            first_to_act=first_to_act,
-        )
+        return _resolve_showdown(pot, st, cards, first_to_act)
 
     if a1.kind is not ActionKind.CHECK:
         raise ValueError(f"Unexpected action from first actor: {a1!r}")
@@ -419,27 +414,7 @@ def play_hand(
         raise ValueError(f"Illegal action from seat {p2}: {a2b!r}")
 
     if a2b.kind is ActionKind.CHECK:
-        if cards[p1] > cards[p2]:
-            w = p1
-        elif cards[p2] > cards[p1]:
-            w = p2
-        else:
-            _award_split_pot(pot, st)
-            return HandResult(
-                winner=None,
-                reason="showdown_tie",
-                final_stacks=(st[0], st[1]),
-                cards=cards,
-                first_to_act=first_to_act,
-            )
-        _award_pot_winner(pot, st, w)
-        return HandResult(
-            winner=w,
-            reason="showdown",
-            final_stacks=(st[0], st[1]),
-            cards=cards,
-            first_to_act=first_to_act,
-        )
+        return _resolve_showdown(pot, st, cards, first_to_act)
 
     if a2b.kind is not ActionKind.RAISE or a2b.amount_dollars is None:
         raise ValueError("Expected raise after check from Player 2.")
@@ -458,27 +433,7 @@ def play_hand(
 
     to_call1 = round_extra[p2] - round_extra[p1]
     if to_call1 == 0:
-        if cards[p1] > cards[p2]:
-            w = p1
-        elif cards[p2] > cards[p1]:
-            w = p2
-        else:
-            _award_split_pot(pot, st)
-            return HandResult(
-                winner=None,
-                reason="showdown_tie",
-                final_stacks=(st[0], st[1]),
-                cards=cards,
-                first_to_act=first_to_act,
-            )
-        _award_pot_winner(pot, st, w)
-        return HandResult(
-            winner=w,
-            reason="showdown",
-            final_stacks=(st[0], st[1]),
-            cards=cards,
-            first_to_act=first_to_act,
-        )
+        return _resolve_showdown(pot, st, cards, first_to_act)
 
     legal1b = _legal_actions_facing_extra((st[0], st[1]), p1, to_call1)
     v1b = _build_view(
@@ -498,14 +453,7 @@ def play_hand(
         raise ValueError(f"Illegal action from seat {p1}: {a1b!r}")
 
     if a1b.kind is ActionKind.FOLD:
-        _award_pot_winner(pot, st, p2)
-        return HandResult(
-            winner=p2,
-            reason="fold",
-            final_stacks=(st[0], st[1]),
-            cards=cards,
-            first_to_act=first_to_act,
-        )
+        return _finish_hand_fold(p2, pot, st, cards, first_to_act)
 
     pay1 = min(to_call1, st[p1])
     st[p1] -= pay1
@@ -513,24 +461,4 @@ def play_hand(
     round_extra[p1] += pay1
     pot, st = _apply_refund_if_mismatch(pot, st, round_extra)
 
-    if cards[p1] > cards[p2]:
-        w = p1
-    elif cards[p2] > cards[p1]:
-        w = p2
-    else:
-        _award_split_pot(pot, st)
-        return HandResult(
-            winner=None,
-            reason="showdown_tie",
-            final_stacks=(st[0], st[1]),
-            cards=cards,
-            first_to_act=first_to_act,
-        )
-    _award_pot_winner(pot, st, w)
-    return HandResult(
-        winner=w,
-        reason="showdown",
-        final_stacks=(st[0], st[1]),
-        cards=cards,
-        first_to_act=first_to_act,
-    )
+    return _resolve_showdown(pot, st, cards, first_to_act)
