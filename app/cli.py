@@ -10,7 +10,7 @@ from pathlib import Path
 from app.actions import Action, ActionKind
 from app.actor_view import ActorView
 from app.config import GameConfig, load_game_config
-from app.hand import HandResult
+from app.hand import HandResult, RaiseTruncationNotice
 from app.match import run_match
 from app.strategies import HotseatStrategy
 
@@ -246,6 +246,24 @@ def main(argv: list[str] | None = None) -> None:
     def choose(_r: random.Random, view: ActorView) -> Action:
         return prompt_action_from_view(_r, view, config)
 
+    def on_raise_truncated(note: RaiseTruncationNotice) -> None:
+        refund = note.requested_extra - note.effective_extra
+        print()
+        print("--- Raise truncated (opponent cannot match the full amount) ---")
+        print(
+            f"Seat {note.raiser_seat} raised +${note.requested_extra}, but seat "
+            f"{note.responder_seat} can only put in +${note.effective_extra} more "
+            "in this betting round given their stack."
+        )
+        print(
+            f"The raise counts as +${note.effective_extra}; ${refund} is refunded "
+            f"from the pot to seat {note.raiser_seat}."
+        )
+        if note.effective_extra == 0:
+            print("No further betting this hand; the hand goes to showdown.")
+        print()
+        input("Press Enter to continue.")
+
     human0 = HotseatStrategy(choose)
     human1 = HotseatStrategy(choose)
 
@@ -272,6 +290,7 @@ def main(argv: list[str] | None = None) -> None:
         human1,
         before_each_hand=_before_hand,
         after_each_hand=after_each_hand,
+        on_raise_truncated=on_raise_truncated,
     )
 
     print()

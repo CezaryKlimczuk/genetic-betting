@@ -3,12 +3,21 @@
 Betting order follows ``AGENTS.md``: the seat named ``first_to_act`` is
 **Player 1** for this hand (acts first); the other seat is **Player 2**.
 
+**Raise cap (callable amount)**: If a raise would require the facing player to
+put in **more than their remaining stack**, the raise is **truncated** first:
+the excess is refunded **immediately** from the pot to the raiser, so the amount
+to call is at most the responder's stack. If that caps the raise to **$0**
+extra, betting is over and the hand goes to **showdown** without another
+decision.
+
 **All-in refund invariant**: After a **call** that puts in less than the full
 amount to match (all-in for less), the pot still holds the over-committed
 player's unmatched chips. That excess is returned from the pot to that player
 **before showdown**, so matched extras are equal and
 ``sum(stacks) + pot`` is unchanged. Refunds do **not** apply when the facing
 player **folds**—the aggressor keeps the full pot including their raise.
+**(Truncation avoids this path** when the raise exceeds what the responder can
+add—they never face an uncapped amount to call.)
 """
 
 from __future__ import annotations
@@ -36,6 +45,19 @@ class HandResult:
     final_stacks: tuple[int, int]
     cards: tuple[int, int]
     first_to_act: int
+
+
+@dataclass(frozen=True, slots=True)
+class RaiseTruncationNotice:
+    """Emitted when a raise amount is capped because the opponent cannot match more."""
+
+    raiser_seat: int
+    responder_seat: int
+    requested_extra: int
+    """Extra dollars the raiser tried to put in on this action (before cap)."""
+
+    effective_extra: int
+    """Extra dollars after capping (opponent's callable amount)."""
 
 
 def _other(seat: int) -> int:
@@ -108,6 +130,51 @@ def _build_view(
     )
 
 
+def _truncate_raise_to_opponent_stack(
+    pot: int,
+    stacks: list[int],
+    round_extra: list[int],
+    raiser: int,
+    responder: int,
+) -> tuple[int, list[int]]:
+    """Cap the raiser's round extra so the responder can match with their stack.
+
+    If ``round_extra[raiser] - round_extra[responder] > stacks[responder]``,
+    refund the surplus from the pot to the raiser and lower ``round_extra``.
+    """
+    r_extra = round_extra[raiser] - round_extra[responder]
+    cap = stacks[responder]
+    if r_extra <= cap:
+        return pot, stacks
+    excess = r_extra - cap
+    round_extra[raiser] -= excess
+    stacks[raiser] += excess
+    return pot - excess, stacks
+
+
+def _notify_raise_truncated_if_applicable(
+    on_raise_truncated: Callable[[RaiseTruncationNotice], None] | None,
+    *,
+    raiser_seat: int,
+    responder_seat: int,
+    requested_extra: int,
+    round_extra: list[int],
+) -> None:
+    if on_raise_truncated is None:
+        return
+    effective_extra = round_extra[raiser_seat] - round_extra[responder_seat]
+    if requested_extra <= effective_extra:
+        return
+    on_raise_truncated(
+        RaiseTruncationNotice(
+            raiser_seat=raiser_seat,
+            responder_seat=responder_seat,
+            requested_extra=requested_extra,
+            effective_extra=effective_extra,
+        )
+    )
+
+
 def _apply_refund_if_mismatch(
     pot: int,
     stacks: list[int],
@@ -149,6 +216,8 @@ def play_hand(
     first_to_act: int,
     strategy0: Strategy,
     strategy1: Strategy,
+    *,
+    on_raise_truncated: Callable[[RaiseTruncationNotice], None] | None = None,
 ) -> HandResult:
     """Play one hand: antes, deal, betting FSM, refunds, showdown if needed.
 
@@ -159,6 +228,8 @@ def play_hand(
         first_to_act: Seat (0 or 1) that acts as **Player 1** this hand.
         strategy0: Chooses an action for seat 0.
         strategy1: Chooses an action for seat 1.
+        on_raise_truncated: If set, called immediately after a raise is capped
+            to the opponent's remaining stack (see module docstring).
 
     Returns:
         ``HandResult`` with final stacks (after pot resolution).
@@ -231,9 +302,40 @@ def play_hand(
         st[p1] -= r
         pot += r
         round_extra[p1] += r
+        pot, st = _truncate_raise_to_opponent_stack(pot, st, round_extra, p1, p2)
+        _notify_raise_truncated_if_applicable(
+            on_raise_truncated,
+            raiser_seat=p1,
+            responder_seat=p2,
+            requested_extra=r,
+            round_extra=round_extra,
+        )
+
+        to_call = round_extra[p1] - round_extra[p2]
+        if to_call == 0:
+            if cards[p1] > cards[p2]:
+                w = p1
+            elif cards[p2] > cards[p1]:
+                w = p2
+            else:
+                _award_split_pot(pot, st)
+                return HandResult(
+                    winner=None,
+                    reason="showdown_tie",
+                    final_stacks=(st[0], st[1]),
+                    cards=cards,
+                    first_to_act=first_to_act,
+                )
+            _award_pot_winner(pot, st, w)
+            return HandResult(
+                winner=w,
+                reason="showdown",
+                final_stacks=(st[0], st[1]),
+                cards=cards,
+                first_to_act=first_to_act,
+            )
 
         # --- Player 2: fold or call ---
-        to_call = r - round_extra[p2]
         legal2 = _legal_actions_facing_extra((st[0], st[1]), p2, to_call)
         v2 = _build_view(
             config,
@@ -345,7 +447,38 @@ def play_hand(
     st[p2] -= r2
     pot += r2
     round_extra[p2] += r2
-    to_call1 = r2 - round_extra[p1]
+    pot, st = _truncate_raise_to_opponent_stack(pot, st, round_extra, p2, p1)
+    _notify_raise_truncated_if_applicable(
+        on_raise_truncated,
+        raiser_seat=p2,
+        responder_seat=p1,
+        requested_extra=r2,
+        round_extra=round_extra,
+    )
+
+    to_call1 = round_extra[p2] - round_extra[p1]
+    if to_call1 == 0:
+        if cards[p1] > cards[p2]:
+            w = p1
+        elif cards[p2] > cards[p1]:
+            w = p2
+        else:
+            _award_split_pot(pot, st)
+            return HandResult(
+                winner=None,
+                reason="showdown_tie",
+                final_stacks=(st[0], st[1]),
+                cards=cards,
+                first_to_act=first_to_act,
+            )
+        _award_pot_winner(pot, st, w)
+        return HandResult(
+            winner=w,
+            reason="showdown",
+            final_stacks=(st[0], st[1]),
+            cards=cards,
+            first_to_act=first_to_act,
+        )
 
     legal1b = _legal_actions_facing_extra((st[0], st[1]), p1, to_call1)
     v1b = _build_view(

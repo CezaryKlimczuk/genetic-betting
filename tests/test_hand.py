@@ -9,7 +9,7 @@ import pytest
 
 from app.actions import Action
 from app.config import GameConfig
-from app.hand import HandResult, _award_split_pot, play_hand
+from app.hand import HandResult, RaiseTruncationNotice, _award_split_pot, play_hand
 
 
 def _cfg(**kwargs: int) -> GameConfig:
@@ -140,6 +140,72 @@ def test_split_odd_dollar_to_seat_0() -> None:
     st = [100, 100]
     _award_split_pot(5, st)
     assert st == [103, 102]
+
+
+def test_p2_raise_truncated_when_p1_broke_showdown_no_p1_decision() -> None:
+    """Facing player has $0 after ante; oversized raise is refunded → showdown."""
+    cfg = _cfg(ante=10, min_raise=1, max_raise=10)
+    span = cfg.card_max - cfg.card_min + 1
+    rng = _DealRng(5, 2, span)
+    stacks = (10, 20)
+    total = sum(stacks)
+    s0, s1 = _strategies([Action.check()], [Action.raise_(5)])
+    r = play_hand(cfg, rng, stacks, first_to_act=0, strategy0=s0, strategy1=s1)
+    assert r.reason in ("showdown", "showdown_tie")
+    assert total == sum(r.final_stacks)
+
+
+def test_p1_raise_truncated_when_p2_stack_smaller() -> None:
+    cfg = _cfg(ante=2, min_raise=1, max_raise=20)
+    span = cfg.card_max - cfg.card_min + 1
+    rng = _DealRng(0, 1, span)
+    stacks = (50, 12)
+    total = sum(stacks)
+    s0, s1 = _strategies([Action.raise_(15)], [Action.call()])
+    r = play_hand(cfg, rng, stacks, first_to_act=0, strategy0=s0, strategy1=s1)
+    assert r.reason == "showdown"
+    assert r.winner == 1
+    assert total == sum(r.final_stacks)
+
+
+def test_on_raise_truncated_callback() -> None:
+    notes: list[RaiseTruncationNotice] = []
+
+    def record(n: RaiseTruncationNotice) -> None:
+        notes.append(n)
+
+    cfg = _cfg(ante=5, min_raise=1, max_raise=20)
+    span = cfg.card_max - cfg.card_min + 1
+    rng = _DealRng(0, 1, span)
+    stacks = (15, 50)
+    s0, s1 = _strategies([Action.check(), Action.call()], [Action.raise_(15)])
+    play_hand(
+        cfg,
+        rng,
+        stacks,
+        first_to_act=0,
+        strategy0=s0,
+        strategy1=s1,
+        on_raise_truncated=record,
+    )
+    assert len(notes) == 1
+    assert notes[0].raiser_seat == 1
+    assert notes[0].responder_seat == 0
+    assert notes[0].requested_extra == 15
+    assert notes[0].effective_extra == 10
+
+
+def test_p2_raise_truncated_to_p1_stack_p1_can_call() -> None:
+    cfg = _cfg(ante=5, min_raise=1, max_raise=20)
+    span = cfg.card_max - cfg.card_min + 1
+    rng = _DealRng(0, 1, span)
+    stacks = (15, 50)
+    total = sum(stacks)
+    s0, s1 = _strategies([Action.check(), Action.call()], [Action.raise_(15)])
+    r = play_hand(cfg, rng, stacks, first_to_act=0, strategy0=s0, strategy1=s1)
+    assert r.reason == "showdown"
+    assert r.winner == 1
+    assert total == sum(r.final_stacks)
 
 
 def test_all_in_short_call_refund_then_showdown() -> None:

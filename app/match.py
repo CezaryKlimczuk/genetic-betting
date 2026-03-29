@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from app.config import GameConfig
-from app.hand import HandResult, Strategy, play_hand
+from app.hand import HandResult, RaiseTruncationNotice, Strategy, play_hand
 
 MatchEndReason = Literal["max_hands", "bankruptcy"]
 
@@ -42,6 +42,7 @@ def run_match(
     *,
     before_each_hand: Callable[[int, tuple[int, int], int], None] | None = None,
     after_each_hand: Callable[[HandResult], None] | None = None,
+    on_raise_truncated: Callable[[RaiseTruncationNotice], None] | None = None,
 ) -> MatchResult:
     """Run hands until bankruptcy, max hands, or cap (see ``AGENTS.md``).
 
@@ -63,6 +64,8 @@ def run_match(
             ``hand_number`` is 1-based within this match.
         after_each_hand: If set, called after each completed hand with
             that hand's :class:`~app.hand.HandResult`.
+        on_raise_truncated: If set, forwarded to each :func:`~app.hand.play_hand`
+            when a raise is capped to the opponent's stack.
 
     Returns:
         ``MatchResult`` with final stacks, end reason, and richer seat if any.
@@ -89,6 +92,7 @@ def run_match(
             first_to_act,
             strategy0,
             strategy1,
+            on_raise_truncated=on_raise_truncated,
         )
         if after_each_hand is not None:
             after_each_hand(hand_result)

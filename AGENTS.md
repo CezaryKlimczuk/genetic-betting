@@ -12,7 +12,7 @@ Betting order each **round**: Player 1 acts first, then Player 2; after the roun
 
 1. **If Player 1 raises**  
    The raise size is an **integer** in **`[min_raise, max_raise]`** from config (inclusive), capped by stack (same bounds as Player 2’s raise after a check).  
-   Player 2 may **fold** or **call** (match the raise, including **all-in for less** if the stack is insufficient).
+   Player 2 may **fold** or **call** (match the raise). If the raise would require Player 2 to put in **more than their remaining stack**, the raise is **truncated** first: the surplus is refunded **immediately** from the pot to Player 1, so the amount to call is capped by Player 2’s stack (they can always call when there is a positive amount to match). If the cap reduces the extra bet to **$0**, the hand goes straight to **showdown**.
 
 2. **If Player 1 checks** (commits **$0** beyond the ante for this decision)  
    Player 2 may **check** (also **$0** beyond ante) or **raise**.  
@@ -20,7 +20,7 @@ Betting order each **round**: Player 1 acts first, then Player 2; after the roun
 
 3. **If Player 2 raises** (after Player 1 checked)  
    The raise amount must be an **integer** in **`[min_raise, max_raise]`** from config (inclusive).  
-   Player 1 may **fold** or **call** (match, including all-in for less).
+   Player 1 may **fold** or **call** (match). The same **truncate-and-refund** rule applies if the raise exceeds what Player 1 can add; if capped to **$0** extra, **showdown** follows without another decision from Player 1.
 
 **Terminology**
 
@@ -35,7 +35,7 @@ There is **no re-raise chain**: at most **one** raise in a round (by Player 2, a
 
 **Tie-break for odd pot**: When splitting, if the pot is odd, assign the extra **$1** to **seat 0** (deterministic).
 
-**All-in mismatch**: If one player **calls** for less than the full amount to match, **refund** the unmatched amount from the pot to the over-committed player **before showdown**. This does **not** apply when the opponent **folds**—the winner takes the full pot, including the unmatched portion of a raise.
+**All-in mismatch**: If one player **calls** for less than the full amount to match, **refund** the unmatched amount from the pot to the over-committed player **before showdown**. Raises are **capped up front** so the facing player never sees an **uncapped** amount to call above their stack; truncation makes post-call mismatch refunds unnecessary in that case. This does **not** apply when the opponent **folds**—the winner takes the full pot, including the unmatched portion of a raise.
 
 **Seats vs Player 1 / 2**: The engine uses **seat 0** and **seat 1**. Each **hand**, the seat that opens the betting sequence is **Player 1** for the rules above (the match layer passes `first_to_act`); the other seat is **Player 2**. The odd-pot split tie-break assigns the extra **$1** to **seat 0** (not “who was Player 1”).
 
