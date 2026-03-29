@@ -20,7 +20,7 @@ Where applicable, assert:
 
 ## Style
 
-- **Table-driven** cases for: P1 check → P2 check (showdown); P1 check → P2 raise (within config bounds) → P1 fold / **call**; P1 raise → P2 fold / **call**; tie split; **odd-pot** split; short all-in refund.
+- **Table-driven** cases for: P1 check → P2 check (showdown); P1 check → P2 raise (within config bounds) → P1 fold / **call**; P1 raise → P2 fold / **call**; tie split; short all-in refund.
 - For **`run_match`**: YAML cap `max_rounds_per_match` (terminal `MatchResult.reason == "max_hands"`), bankruptcy (stack strictly below `ante` before the next hand), **alternating** `first_to_act`, and **stack ties** at match end where relevant.
 - Prefer **deterministic strategies** over random ones for correctness; use **`app.strategies.ScriptedStrategy`** for fixed action queues in tests.
 - Use **small integer stakes** and **fixed RNG seeds** when randomness is involved.

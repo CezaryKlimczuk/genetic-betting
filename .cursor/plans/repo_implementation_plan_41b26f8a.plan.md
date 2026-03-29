@@ -128,7 +128,7 @@ flowchart TB
 
 **T4 — Single-hand engine**  
 
-- Implement betting + showdown + pot split (odd pot: extra chip to seat 0) + refunds.  
+- Implement betting + showdown + pot split (even pot at tie; split evenly) + refunds.  
 - Injected `random.Random` for deals.  
 - **Done**: pytest table cases for every branch in [AGENTS.md](AGENTS.md) Game rules + conservation `sum(wallets)+pot` constant across a hand after refunds.
 

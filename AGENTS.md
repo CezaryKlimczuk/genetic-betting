@@ -31,13 +31,11 @@ There is **no re-raise chain**: at most **one** raise in a round (by Player 2, a
 
 **Showdown**: If neither player folds, compare cards (values from config range, e.g. 1–10). Higher card wins the pot; **tie → split the pot**.
 
-**Money**: All balances, antes, raises, and pot sizes are integers (**`int`** in code; no fractional amounts).
-
-**Tie-break for odd pot**: When splitting, if the pot is odd, assign the extra **$1** to **seat 0** (deterministic).
+**Money**: All balances, antes, raises, and pot sizes are integers (**`int`** in code; no fractional amounts). At showdown after matched betting, the pot is always **even**, so a tie splits it evenly with no remainder.
 
 **All-in mismatch**: If one player **calls** for less than the full amount to match, **refund** the unmatched amount from the pot to the over-committed player **before showdown**. Raises are **capped up front** so the facing player never sees an **uncapped** amount to call above their stack; truncation makes post-call mismatch refunds unnecessary in that case. This does **not** apply when the opponent **folds**—the winner takes the full pot, including the unmatched portion of a raise.
 
-**Seats vs Player 1 / 2**: The engine uses **seat 0** and **seat 1**. Each **hand**, the seat that opens the betting sequence is **Player 1** for the rules above (the match layer passes `first_to_act`); the other seat is **Player 2**. The odd-pot split tie-break assigns the extra **$1** to **seat 0** (not “who was Player 1”).
+**Seats vs Player 1 / 2**: The engine uses **seat 0** and **seat 1**. Each **hand**, the seat that opens the betting sequence is **Player 1** for the rules above (the match layer passes `first_to_act`); the other seat is **Player 2**.
 
 **First action**: Player 1 may **fold** on the first decision (forfeit the hand, including ante already posted).
 
@@ -47,12 +45,16 @@ There is **no re-raise chain**: at most **one** raise in a round (by Player 2, a
 
 | Path | Role |
 |------|------|
-| `app/` | Application modules—`config`, `actions` / `actor_view`, **`hand.py`** (one hand), **`match.py`** (`run_match`), **`strategies.py`** (`HotseatStrategy`, `ScriptedStrategy`, `RandomLegalStrategy`, `legal_actions_for_view`), **`cli.py`** (`hotseat_menu_actions`, `hotseat_action_completes_hand`, argparse hotseat driver)—run with `uv run python -m app.cli`, not an installable distribution |
+| `app/` | Application modules—`config`, `actions` / `actor_view`, **`legal_actions.py`** (`legal_actions_for_view`; canonical legal action list from an `ActorView`, used by **`hand.play_hand`** for validation), **`hand.py`** (one hand), **`match.py`** (`run_match`), **`strategies.py`** (`HotseatStrategy`, `ScriptedStrategy`, `RandomLegalStrategy`; re-exports `legal_actions_for_view`), **`cli.py`** (`hotseat_menu_actions`, `hotseat_action_completes_hand`, argparse hotseat driver). Run hotseat with `uv run python -m app.cli`; not an installable distribution. |
 | `config/` | Example game **YAML** (stacks, ante, `min_raise` / `max_raise`, card range, max rounds) |
 | `tests/` | `pytest` (`pythonpath` includes repo root so `import app` works) |
 | `scripts/` | Throughput benchmark (`benchmark_hands.py`) |
 
 A **strategy** is `Callable[[random.Random, ActorView], Action]` (see `Strategy` in `hand.py`). `ActorView.can_fold` is only true when fold is legal at that decision (e.g. false for Player 2 after Player 1 checked—**check** or **raise** only).
+
+`ActorView.decision_phase` (type `DecisionPhase` in `app/actor_view.py`) records which betting node produced the view. The engine sets it only in `hand.py` when calling `_build_view` (`p1_open`, `p2_facing_raise`, `p2_after_check`, `p1_facing_raise`). `hotseat_action_completes_hand` in `cli.py` uses it so “handoff” vs “hand results” pauses match the FSM without re-deriving state from flags. Code or tests that build an `ActorView` directly must pass a valid `decision_phase`.
+
+For **batch / GA encoders**, the same module provides `as_observation` and `Observation` (fixed-length float vector, ego-centric—no seat one-hot; layout and `OBSERVATION_VECTOR_LEN` are documented there). The engine remains authoritative for money and legality.
 
 ## Config format
 
@@ -91,7 +93,7 @@ Adjust to match the repo’s `uv`/`pytest` setup as it evolves.
 
 - Behavior matches the **Game rules** section; **conservation** of total money in play holds (including refunds).
 - Config keys documented in example **YAML** and loaded in code.
-- Tests cover: P1 raise → P2 fold vs call; P1 check → P2 check vs raise (amount in config range) → P1 fold vs call; ties and odd pot; short all-in refund.
+- Tests cover: P1 raise → P2 fold vs call; P1 check → P2 check vs raise (amount in config range) → P1 fold vs call; tie split; short all-in refund.
 - Public API docstrings per `.cursor/rules/python-pep8-docstrings.mdc`.
 
 ## Performance

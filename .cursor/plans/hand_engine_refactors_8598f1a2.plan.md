@@ -7,16 +7,16 @@ todos:
     status: completed
   - id: phase2-strategy-type
     content: Unify Strategy / StrategyFn (single canonical type + re-exports); update match/strategies imports
-    status: pending
+    status: completed
   - id: phase3-legal-unify
     content: Move legal_actions_for_view to neutral module if needed; drive play_hand validation from it; remove _legal_actions_*; add table/characterization tests
-    status: pending
+    status: completed
   - id: phase4-decision-tag
     content: (Optional) Add ActorView decision phase; simplify hotseat_action_completes_hand; fix test fixtures
-    status: pending
+    status: completed
   - id: phase5-observation
     content: (Optional) Add as_observation(view) for GA/batch encoders without touching engine math
-    status: pending
+    status: completed
 isProject: false
 ---
 
@@ -24,7 +24,7 @@ isProject: false
 
 ## Scope and guardrails
 
-- **Contract:** Existing tests plus `[AGENTS.md](/home/cez/coding/genetic-betting/AGENTS.md)` semantics (refunds, truncate-and-refund, odd pot to seat 0, seeded `random.Random`, no logging on hot path).
+- **Contract:** Existing tests plus `[AGENTS.md](/home/cez/coding/genetic-betting/AGENTS.md)` semantics (refunds, truncate-and-refund, showdown tie = even pot / even split, seeded `random.Random`, no logging on hot path).
 - **Verification:** `uv run pytest` after each phase; run `[scripts/benchmark_hands.py](/home/cez/coding/genetic-betting/scripts/benchmark_hands.py)` after Phase 1–2 if you want throughput regression signal (optional).
 - **Out of scope for initial phases:** New game rules, batch NN training pipelines, or large renames unrelated to these seams.
 
