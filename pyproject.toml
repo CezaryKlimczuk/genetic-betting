@@ -4,7 +4,9 @@ version = "0.1.0"
 description = "Configurable two-player betting game (simulation + future GA experiments)."
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "pyyaml>=6.0.3",
+]
 
 [dependency-groups]
 dev = [
