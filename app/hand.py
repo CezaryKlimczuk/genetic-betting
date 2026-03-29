@@ -28,7 +28,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from app.actions import Action, ActionKind
-from app.actor_view import ActorView
+from app.actor_view import ActorView, DecisionPhase
 from app.config import GameConfig, strict_int
 from app.legal_actions import legal_actions_for_view
 
@@ -87,6 +87,7 @@ def _build_view(
     can_raise: bool,
     raise_amount_min: int | None,
     raise_amount_max: int | None,
+    decision_phase: DecisionPhase,
     can_fold: bool = True,
 ) -> ActorView:
     opp = _other(seat)
@@ -105,6 +106,7 @@ def _build_view(
         can_raise=can_raise,
         raise_amount_min=raise_amount_min,
         raise_amount_max=raise_amount_max,
+        decision_phase=decision_phase,
     )
 
 
@@ -303,6 +305,7 @@ def play_hand(
         can_raise=can_r1,
         raise_amount_min=min(raise_opts1) if can_r1 else None,
         raise_amount_max=max(raise_opts1) if can_r1 else None,
+        decision_phase="p1_open",
     )
     legal1 = legal_actions_for_view(v1)
     a1 = choose(p1, v1)
@@ -347,6 +350,7 @@ def play_hand(
             can_raise=False,
             raise_amount_min=None,
             raise_amount_max=None,
+            decision_phase="p2_facing_raise",
         )
         legal2 = legal_actions_for_view(v2)
         a2 = choose(p2, v2)
@@ -382,6 +386,7 @@ def play_hand(
         can_raise=can_r2,
         raise_amount_min=min(raise_opts2) if can_r2 else None,
         raise_amount_max=max(raise_opts2) if can_r2 else None,
+        decision_phase="p2_after_check",
         can_fold=False,
     )
     legal2b = legal_actions_for_view(v2b)
@@ -422,6 +427,7 @@ def play_hand(
         can_raise=False,
         raise_amount_min=None,
         raise_amount_max=None,
+        decision_phase="p1_facing_raise",
     )
     legal1b = legal_actions_for_view(v1b)
     a1b = choose(p1, v1b)

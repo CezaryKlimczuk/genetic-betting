@@ -80,8 +80,10 @@ def hotseat_menu_actions(config: GameConfig, view: ActorView) -> list[tuple[Acti
 def hotseat_action_completes_hand(view: ActorView, action: Action) -> bool:
     """Return True if this choice finishes the current hand (no further decisions).
 
-    Mirrors ``app.hand`` betting nodes: fold always ends; call ends after a raise;
-    check ends only when Player 2 checks back after Player 1 checked; raise does not.
+    Relies on :attr:`~app.actor_view.ActorView.decision_phase` set in
+    ``app.hand`` when the view is built. Fold and call always end the hand if
+    submitted (matching prior CLI behavior); raise never does; check ends only
+    in the ``p2_after_check`` phase (check-back after Player 1 checked).
     """
     if action.kind is ActionKind.FOLD:
         return True
@@ -90,12 +92,7 @@ def hotseat_action_completes_hand(view: ActorView, action: Action) -> bool:
     if action.kind is ActionKind.RAISE:
         return False
     if action.kind is ActionKind.CHECK:
-        # Player 2 after Player 1 checked: ``play_hand`` sets ``can_fold`` false here.
-        return (
-            not view.can_fold
-            and view.amount_to_call == 0
-            and view.can_check
-        )
+        return view.decision_phase == "p2_after_check"
     raise AssertionError(f"Unknown action: {action!r}")
 
 

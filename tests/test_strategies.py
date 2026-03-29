@@ -46,13 +46,16 @@ def _example_view(**kwargs: Any) -> ActorView:
         can_raise=True,
         raise_amount_min=1,
         raise_amount_max=3,
+        decision_phase="p1_open",
     )
     defaults.update(kwargs)
     return ActorView.from_config(_VIEW_CFG, **defaults)
 
 
 def test_legal_actions_after_check_line_excludes_fold_when_can_fold_false() -> None:
-    view = _example_view(can_fold=False, seat=1)
+    view = _example_view(
+        can_fold=False, seat=1, decision_phase="p2_after_check"
+    )
     legal = legal_actions_for_view(view)
     assert all(a.kind != ActionKind.FOLD for a in legal)
     assert Action.check() in legal
@@ -86,6 +89,7 @@ def _table_view(**kwargs: Any) -> ActorView:
         can_raise=False,
         raise_amount_min=None,
         raise_amount_max=None,
+        decision_phase="p1_open",
     )
     base.update(kwargs)
     return ActorView.from_config(_TABLE_CFG, **base)
@@ -106,6 +110,7 @@ def _table_view(**kwargs: Any) -> ActorView:
                 can_raise=True,
                 raise_amount_min=2,
                 raise_amount_max=5,
+                decision_phase="p1_open",
             ),
             [
                 Action.fold(),
@@ -125,6 +130,7 @@ def _table_view(**kwargs: Any) -> ActorView:
                 can_raise=False,
                 raise_amount_min=None,
                 raise_amount_max=None,
+                decision_phase="p1_open",
             ),
             [Action.fold(), Action.check()],
         ),
@@ -139,6 +145,7 @@ def _table_view(**kwargs: Any) -> ActorView:
                 can_raise=False,
                 raise_amount_min=None,
                 raise_amount_max=None,
+                decision_phase="p2_facing_raise",
             ),
             [Action.fold(), Action.call()],
         ),
@@ -154,6 +161,7 @@ def _table_view(**kwargs: Any) -> ActorView:
                 can_raise=False,
                 raise_amount_min=None,
                 raise_amount_max=None,
+                decision_phase="p1_facing_raise",
             ),
             [Action.fold()],
         ),
@@ -168,6 +176,7 @@ def _table_view(**kwargs: Any) -> ActorView:
                 can_raise=True,
                 raise_amount_min=2,
                 raise_amount_max=4,
+                decision_phase="p2_after_check",
             ),
             [
                 Action.check(),

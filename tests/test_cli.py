@@ -41,6 +41,7 @@ def _p1_view(cfg: GameConfig) -> ActorView:
         can_raise=False,
         raise_amount_min=None,
         raise_amount_max=None,
+        decision_phase="p1_open",
     )
 
 
@@ -65,6 +66,7 @@ def test_hotseat_action_completes_hand_matches_fsm() -> None:
         can_raise=True,
         raise_amount_min=5,
         raise_amount_max=10,
+        decision_phase="p2_after_check",
     )
     assert hotseat_action_completes_hand(p2_check_back, Action.check())
     assert not hotseat_action_completes_hand(p2_check_back, Action.raise_(5))
@@ -84,6 +86,7 @@ def test_hotseat_action_completes_hand_matches_fsm() -> None:
         can_raise=False,
         raise_amount_min=None,
         raise_amount_max=None,
+        decision_phase="p2_facing_raise",
     )
     assert hotseat_action_completes_hand(facing, Action.call())
     assert hotseat_action_completes_hand(facing, Action.fold())

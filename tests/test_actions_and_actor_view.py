@@ -59,7 +59,7 @@ def test_actor_view_from_config_and_showdown() -> None:
     cfg = _sample_config()
     v = ActorView.from_config(
         cfg,
-        seat=0,
+        seat=1,
         own_card=7,
         opponent_card=None,
         wallet_self=90,
@@ -72,6 +72,7 @@ def test_actor_view_from_config_and_showdown() -> None:
         can_raise=True,
         raise_amount_min=2,
         raise_amount_max=10,
+        decision_phase="p2_after_check",
     )
     assert v.card_min == cfg.card_min and v.card_max == cfg.card_max
     assert v.opponent_card is None
@@ -91,6 +92,7 @@ def test_actor_view_from_config_and_showdown() -> None:
         can_raise=False,
         raise_amount_min=None,
         raise_amount_max=None,
+        decision_phase="p1_open",
     )
     assert at_showdown.opponent_card == 9
 
@@ -112,6 +114,7 @@ def test_actor_view_validation() -> None:
         can_raise=False,
         raise_amount_min=None,
         raise_amount_max=None,
+        decision_phase="p1_open",
     )
     with pytest.raises(ValueError, match="seat must be 0 or 1"):
         ActorView(**{**base, "seat": 2})
@@ -159,3 +162,5 @@ def test_actor_view_validation() -> None:
                 "raise_amount_max": 2,
             }
         )
+    with pytest.raises(ValueError, match="decision_phase must be one of"):
+        ActorView(**{**base, "decision_phase": "showdown"})  # type: ignore[arg-type]

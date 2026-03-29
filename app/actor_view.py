@@ -3,9 +3,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 from app.config import GameConfig, strict_int
+
+_DECISION_PHASES = frozenset(
+    ("p1_open", "p2_facing_raise", "p2_after_check", "p1_facing_raise")
+)
+DecisionPhase = Literal["p1_open", "p2_facing_raise", "p2_after_check", "p1_facing_raise"]
+"""Betting FSM node for the current decision (set by :func:`app.hand.play_hand`)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -23,6 +29,9 @@ class ActorView:
     the inclusive legal **raise sizes** (extra dollars beyond the check line) for
     this decision, already intersected with stack limits. When false, both are
     ``None``.
+
+    ``decision_phase`` records which betting node built this view (see
+    :mod:`app.hand`); UI code can use it without re-deriving FSM state.
     """
 
     seat: int
@@ -40,6 +49,7 @@ class ActorView:
     can_raise: bool
     raise_amount_min: int | None
     raise_amount_max: int | None
+    decision_phase: DecisionPhase
 
     @classmethod
     def from_config(cls, config: GameConfig, /, **kwargs: Any) -> ActorView:
@@ -92,3 +102,9 @@ class ActorView:
         else:
             if self.raise_amount_min is not None or self.raise_amount_max is not None:
                 raise ValueError("raise bounds must be None when can_raise is false.")
+
+        if self.decision_phase not in _DECISION_PHASES:
+            raise ValueError(
+                f"decision_phase must be one of {sorted(_DECISION_PHASES)!r}, "
+                f"got {self.decision_phase!r}."
+            )
