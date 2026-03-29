@@ -16,7 +16,7 @@ todos:
     status: completed
   - id: t4-hand-engine
     content: "T4: single-hand FSM, refunds, split pot + conservation tests"
-    status: pending
+    status: completed
   - id: t5-match
     content: "T5: run_match, alternate starter, terminal conditions + tests"
     status: pending

@@ -11,6 +11,7 @@ Follow the **planned layout and task plan** the owner provides (roadmap, issues,
 Betting order each **round**: Player 1 acts first, then Player 2; after the round, **first actor alternates** (Player 2 starts the next round).
 
 1. **If Player 1 raises**  
+   The raise size is an **integer dollar** in **`[min_raise, max_raise]`** from config (inclusive), capped by stack (same bounds as Player 2’s raise after a check).  
    Player 2 may **fold** or **call** (match the raise, including **all-in for less** if the stack is insufficient).
 
 2. **If Player 1 checks** (commits **$0** beyond the ante for this decision)  
@@ -32,9 +33,13 @@ There is **no re-raise chain**: at most **one** raise in a round (by Player 2, a
 
 **Money**: All balances, antes, raises, and pot sizes are **`int` whole dollars** (no floats).
 
-**Tie-break for odd pot (dollars)**: When splitting, if the pot is odd, assign the extra **$1** to **Player 0** (deterministic).
+**Tie-break for odd pot (dollars)**: When splitting, if the pot is odd, assign the extra **$1** to **seat 0** (deterministic).
 
-**All-in mismatch**: If one player cannot match the other’s commitment, **refund** unmatched dollars to the over-committed player before showdown (document exact accounting in code).
+**All-in mismatch**: If one player **calls** for less than the full amount to match, **refund** unmatched dollars from the pot to the over-committed player **before showdown**. This does **not** apply when the opponent **folds**—the winner takes the full pot, including the unmatched portion of a raise.
+
+**Seats vs Player 1 / 2**: The engine uses **seat 0** and **seat 1**. Each **hand**, the seat that opens the betting sequence is **Player 1** for the rules above (the match layer passes `first_to_act`); the other seat is **Player 2**. The odd-pot split tie-break assigns the extra **$1** to **seat 0** (not “who was Player 1”).
+
+**First action**: Player 1 may **fold** on the first decision (forfeit the hand, including ante already posted).
 
 **Match end**: Play until a player is broke or a **safety max-round** limit; then the player with **more money** wins.
 

@@ -1,0 +1,401 @@
+"""Single-hand betting, refunds, and showdown (no match loop).
+
+Betting order follows ``AGENTS.md``: the seat named ``first_to_act`` is
+**Player 1** for this hand (acts first); the other seat is **Player 2**.
+
+**All-in refund invariant**: After a **call** that puts in less than the full
+amount to match (all-in for less), the pot still holds the over-committed
+player's unmatched chips. That excess is returned from the pot to that player
+**before showdown**, so matched extras are equal and
+``sum(stacks) + pot`` is unchanged. Refunds do **not** apply when the facing
+player **folds**—the aggressor keeps the full pot including their raise.
+"""
+
+from __future__ import annotations
+
+import random
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Literal
+
+from app.actions import Action, ActionKind
+from app.actor_view import ActorView
+from app.config import GameConfig, strict_int
+
+Strategy = Callable[[random.Random, ActorView], Action]
+
+
+@dataclass(frozen=True, slots=True)
+class HandResult:
+    """Outcome of one hand after antes, betting, refunds, and pot award."""
+
+    winner: int | None
+    """Winning seat, or ``None`` if the pot was split (showdown tie)."""
+
+    reason: Literal["fold", "showdown", "showdown_tie"]
+    final_stacks: tuple[int, int]
+    cards: tuple[int, int]
+    first_to_act: int
+
+
+def _other(seat: int) -> int:
+    return 1 - seat
+
+
+def _raise_amounts(config: GameConfig, max_extra: int) -> list[int]:
+    """Inclusive legal raise sizes (extra dollars) capped by ``max_extra``."""
+    if max_extra < config.min_raise:
+        return []
+    hi = min(config.max_raise, max_extra)
+    if hi < config.min_raise:
+        return []
+    return list(range(config.min_raise, hi + 1))
+
+
+def _legal_actions_p1_first(
+    config: GameConfig,
+    seat: int,
+    stacks: tuple[int, int],
+) -> list[Action]:
+    """Legal actions for Player 1 (nothing extra to call yet)."""
+    s = stacks[seat]
+    actions: list[Action] = [Action.fold(), Action.check()]
+    for a in _raise_amounts(config, s):
+        actions.append(Action.raise_(a))
+    return actions
+
+
+def _legal_actions_facing_extra(
+    stacks: tuple[int, int], seat: int, amount_to_call: int
+) -> list[Action]:
+    """Facing ``amount_to_call`` (fold / call if stack can put at least $1)."""
+    actions: list[Action] = [Action.fold()]
+    if amount_to_call > 0 and stacks[seat] > 0:
+        actions.append(Action.call())
+    return actions
+
+
+def _build_view(
+    config: GameConfig,
+    seat: int,
+    stacks: tuple[int, int],
+    *,
+    pot: int,
+    round_extra: tuple[int, int],
+    cards: tuple[int, int],
+    amount_to_call: int,
+    can_raise: bool,
+    raise_amount_min: int | None,
+    raise_amount_max: int | None,
+) -> ActorView:
+    opp = _other(seat)
+    return ActorView.from_config(
+        config,
+        seat=seat,
+        own_card=cards[seat],
+        opponent_card=None,
+        wallet_self=stacks[seat],
+        wallet_opponent=stacks[opp],
+        pot=pot,
+        amount_to_call=amount_to_call,
+        can_check=amount_to_call == 0,
+        can_fold=True,
+        can_call=amount_to_call > 0 and stacks[seat] > 0,
+        can_raise=can_raise,
+        raise_amount_min=raise_amount_min,
+        raise_amount_max=raise_amount_max,
+    )
+
+
+def _apply_refund_if_mismatch(
+    pot: int,
+    stacks: list[int],
+    round_extra: list[int],
+) -> tuple[int, list[int]]:
+    """Refund unmatched extra from pot to the over-committed seat."""
+    e0, e1 = round_extra[0], round_extra[1]
+    if e0 == e1:
+        return pot, stacks
+    if e0 > e1:
+        refund = e0 - e1
+        round_extra[0] = e1
+        stacks[0] += refund
+        return pot - refund, stacks
+    refund = e1 - e0
+    round_extra[1] = e0
+    stacks[1] += refund
+    return pot - refund, stacks
+
+
+def _award_pot_winner(pot: int, stacks: list[int], winner: int) -> None:
+    stacks[winner] += pot
+
+
+def _award_split_pot(pot: int, stacks: list[int]) -> None:
+    """Split ``pot``; odd dollar goes to seat 0 (AGENTS.md)."""
+    if pot <= 0:
+        return
+    half = pot // 2
+    rem = pot - 2 * half
+    stacks[0] += half + rem
+    stacks[1] += half
+
+
+def play_hand(
+    config: GameConfig,
+    rng: random.Random,
+    stacks: tuple[int, int],
+    first_to_act: int,
+    strategy0: Strategy,
+    strategy1: Strategy,
+) -> HandResult:
+    """Play one hand: antes, deal, betting FSM, refunds, showdown if needed.
+
+    Args:
+        config: Validated game parameters.
+        rng: Injected RNG (used to deal ``card_min``..``card_max`` inclusive).
+        stacks: Wallets **before** antes (each must be >= ``config.ante``).
+        first_to_act: Seat (0 or 1) that acts as **Player 1** this hand.
+        strategy0: Chooses an action for seat 0.
+        strategy1: Chooses an action for seat 1.
+
+    Returns:
+        ``HandResult`` with final stacks (after pot resolution).
+
+    Raises:
+        ValueError: If ``stacks`` cannot cover ante or ``first_to_act`` invalid.
+    """
+    if first_to_act not in (0, 1):
+        raise ValueError("first_to_act must be 0 or 1.")
+    s0, s1 = strict_int("stacks[0]", stacks[0]), strict_int("stacks[1]", stacks[1])
+    if s0 < config.ante or s1 < config.ante:
+        raise ValueError("Each stack must be at least ante.")
+
+    st = [s0, s1]
+    pot = 0
+    st[0] -= config.ante
+    st[1] -= config.ante
+    pot += 2 * config.ante
+    round_extra = [0, 0]
+
+    span = config.card_max - config.card_min + 1
+    c0 = config.card_min + rng.randrange(span)
+    c1 = config.card_min + rng.randrange(span)
+    cards = (c0, c1)
+
+    strategies: tuple[Strategy, Strategy] = (strategy0, strategy1)
+    p1 = first_to_act
+    p2 = _other(p1)
+
+    def choose(seat: int, view: ActorView) -> Action:
+        return strategies[seat](rng, view)
+
+    # --- Player 1 (first actor) ---
+    legal1 = _legal_actions_p1_first(config, p1, (st[0], st[1]))
+    raise_opts1 = [a.amount_dollars for a in legal1 if a.kind is ActionKind.RAISE]
+    can_r1 = len(raise_opts1) > 0
+    v1 = _build_view(
+        config,
+        p1,
+        (st[0], st[1]),
+        pot=pot,
+        round_extra=(round_extra[0], round_extra[1]),
+        cards=cards,
+        amount_to_call=0,
+        can_raise=can_r1,
+        raise_amount_min=min(raise_opts1) if can_r1 else None,
+        raise_amount_max=max(raise_opts1) if can_r1 else None,
+    )
+    a1 = choose(p1, v1)
+    if a1 not in legal1:
+        raise ValueError(f"Illegal action from seat {p1}: {a1!r}")
+
+    if a1.kind is ActionKind.FOLD:
+        _award_pot_winner(pot, st, p2)
+        return HandResult(
+            winner=p2,
+            reason="fold",
+            final_stacks=(st[0], st[1]),
+            cards=cards,
+            first_to_act=first_to_act,
+        )
+
+    if a1.kind is ActionKind.CALL:
+        raise ValueError("Illegal call with nothing to match (use check).")
+
+    if a1.kind is ActionKind.RAISE:
+        if a1.amount_dollars is None:
+            raise ValueError("raise without amount.")
+        r = a1.amount_dollars
+        st[p1] -= r
+        pot += r
+        round_extra[p1] += r
+
+        # --- Player 2: fold or call ---
+        to_call = r - round_extra[p2]
+        legal2 = _legal_actions_facing_extra((st[0], st[1]), p2, to_call)
+        v2 = _build_view(
+            config,
+            p2,
+            (st[0], st[1]),
+            pot=pot,
+            round_extra=(round_extra[0], round_extra[1]),
+            cards=cards,
+            amount_to_call=to_call,
+            can_raise=False,
+            raise_amount_min=None,
+            raise_amount_max=None,
+        )
+        a2 = choose(p2, v2)
+        if a2 not in legal2:
+            raise ValueError(f"Illegal action from seat {p2}: {a2!r}")
+
+        if a2.kind is ActionKind.FOLD:
+            _award_pot_winner(pot, st, p1)
+            return HandResult(
+                winner=p1,
+                reason="fold",
+                final_stacks=(st[0], st[1]),
+                cards=cards,
+                first_to_act=first_to_act,
+            )
+
+        # call (including all-in for less)
+        pay = min(to_call, st[p2])
+        st[p2] -= pay
+        pot += pay
+        round_extra[p2] += pay
+        pot, st = _apply_refund_if_mismatch(pot, st, round_extra)
+
+        if cards[p1] > cards[p2]:
+            w = p1
+        elif cards[p2] > cards[p1]:
+            w = p2
+        else:
+            _award_split_pot(pot, st)
+            return HandResult(
+                winner=None,
+                reason="showdown_tie",
+                final_stacks=(st[0], st[1]),
+                cards=cards,
+                first_to_act=first_to_act,
+            )
+        _award_pot_winner(pot, st, w)
+        return HandResult(
+            winner=w,
+            reason="showdown",
+            final_stacks=(st[0], st[1]),
+            cards=cards,
+            first_to_act=first_to_act,
+        )
+
+    if a1.kind is not ActionKind.CHECK:
+        raise ValueError(f"Unexpected action from first actor: {a1!r}")
+
+    legal2b: list[Action] = [Action.check()]
+    for amt in _raise_amounts(config, st[p2]):
+        legal2b.append(Action.raise_(amt))
+    raise_opts2 = [x.amount_dollars for x in legal2b if x.kind is ActionKind.RAISE]
+    can_r2 = len(raise_opts2) > 0
+
+    v2b = _build_view(
+        config,
+        p2,
+        (st[0], st[1]),
+        pot=pot,
+        round_extra=(round_extra[0], round_extra[1]),
+        cards=cards,
+        amount_to_call=0,
+        can_raise=can_r2,
+        raise_amount_min=min(raise_opts2) if can_r2 else None,
+        raise_amount_max=max(raise_opts2) if can_r2 else None,
+    )
+    a2b = choose(p2, v2b)
+    if a2b not in legal2b:
+        raise ValueError(f"Illegal action from seat {p2}: {a2b!r}")
+
+    if a2b.kind is ActionKind.CHECK:
+        if cards[p1] > cards[p2]:
+            w = p1
+        elif cards[p2] > cards[p1]:
+            w = p2
+        else:
+            _award_split_pot(pot, st)
+            return HandResult(
+                winner=None,
+                reason="showdown_tie",
+                final_stacks=(st[0], st[1]),
+                cards=cards,
+                first_to_act=first_to_act,
+            )
+        _award_pot_winner(pot, st, w)
+        return HandResult(
+            winner=w,
+            reason="showdown",
+            final_stacks=(st[0], st[1]),
+            cards=cards,
+            first_to_act=first_to_act,
+        )
+
+    if a2b.kind is not ActionKind.RAISE or a2b.amount_dollars is None:
+        raise ValueError("Expected raise after check from Player 2.")
+    r2 = a2b.amount_dollars
+    st[p2] -= r2
+    pot += r2
+    round_extra[p2] += r2
+    to_call1 = r2 - round_extra[p1]
+
+    legal1b = _legal_actions_facing_extra((st[0], st[1]), p1, to_call1)
+    v1b = _build_view(
+        config,
+        p1,
+        (st[0], st[1]),
+        pot=pot,
+        round_extra=(round_extra[0], round_extra[1]),
+        cards=cards,
+        amount_to_call=to_call1,
+        can_raise=False,
+        raise_amount_min=None,
+        raise_amount_max=None,
+    )
+    a1b = choose(p1, v1b)
+    if a1b not in legal1b:
+        raise ValueError(f"Illegal action from seat {p1}: {a1b!r}")
+
+    if a1b.kind is ActionKind.FOLD:
+        _award_pot_winner(pot, st, p2)
+        return HandResult(
+            winner=p2,
+            reason="fold",
+            final_stacks=(st[0], st[1]),
+            cards=cards,
+            first_to_act=first_to_act,
+        )
+
+    pay1 = min(to_call1, st[p1])
+    st[p1] -= pay1
+    pot += pay1
+    round_extra[p1] += pay1
+    pot, st = _apply_refund_if_mismatch(pot, st, round_extra)
+
+    if cards[p1] > cards[p2]:
+        w = p1
+    elif cards[p2] > cards[p1]:
+        w = p2
+    else:
+        _award_split_pot(pot, st)
+        return HandResult(
+            winner=None,
+            reason="showdown_tie",
+            final_stacks=(st[0], st[1]),
+            cards=cards,
+            first_to_act=first_to_act,
+        )
+    _award_pot_winner(pot, st, w)
+    return HandResult(
+        winner=w,
+        reason="showdown",
+        final_stacks=(st[0], st[1]),
+        cards=cards,
+        first_to_act=first_to_act,
+    )

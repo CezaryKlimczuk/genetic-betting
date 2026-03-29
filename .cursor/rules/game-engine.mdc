@@ -9,7 +9,7 @@ alwaysApply: false
 ## Layering
 
 - **`config`**: Load **YAML** (not TOML) into a `GameConfig` (or similar) dataclass; use a YAML library added with **`uv add`**. No game logic in the loader.
-- **Core engine** (hand/round, match): State transitions only; **no** I/O, CLI, or GA orchestration.
+- **Core engine** (hand/round, match): State transitions only; **no** I/O, CLI, or GA orchestration. Single-hand FSM lives in **`app/hand.py`** (`play_hand`, refunds, showdown); the match loop will live alongside it when implemented.
 - **`strategies`**: `Protocol` or ABC for `choose_action(...)`; depend on a **public observation** type, not private engine details.
 
 ## Money and types
