@@ -1,0 +1,7 @@
+starting_stack: 20
+ante: 1
+min_raise: 1
+max_raise: 10
+max_rounds_per_match: 500
+card_min: 1
+card_max: 10
