@@ -11,7 +11,7 @@ Follow the **planned layout and task plan** the owner provides (roadmap, issues,
 Betting order each **round**: Player 1 acts first, then Player 2; after the round, **first actor alternates** (Player 2 starts the next round).
 
 1. **If Player 1 raises**  
-   The raise size is an **integer dollar** in **`[min_raise, max_raise]`** from config (inclusive), capped by stack (same bounds as Player 2’s raise after a check).  
+   The raise size is an **integer** in **`[min_raise, max_raise]`** from config (inclusive), capped by stack (same bounds as Player 2’s raise after a check).  
    Player 2 may **fold** or **call** (match the raise, including **all-in for less** if the stack is insufficient).
 
 2. **If Player 1 checks** (commits **$0** beyond the ante for this decision)  
@@ -19,7 +19,7 @@ Betting order each **round**: Player 1 acts first, then Player 2; after the roun
    **This is the only situation in which Player 2 may raise.**
 
 3. **If Player 2 raises** (after Player 1 checked)  
-   The raise amount must be an **integer dollar** amount in **`[min_raise, max_raise]`** from config (inclusive).  
+   The raise amount must be an **integer** in **`[min_raise, max_raise]`** from config (inclusive).  
    Player 1 may **fold** or **call** (match, including all-in for less).
 
 **Terminology**
@@ -31,24 +31,24 @@ There is **no re-raise chain**: at most **one** raise in a round (by Player 2, a
 
 **Showdown**: If neither player folds, compare cards (values from config range, e.g. 1–10). Higher card wins the pot; **tie → split the pot**.
 
-**Money**: All balances, antes, raises, and pot sizes are **`int` whole dollars** (no floats).
+**Money**: All balances, antes, raises, and pot sizes are integers (**`int`** in code; no fractional amounts).
 
-**Tie-break for odd pot (dollars)**: When splitting, if the pot is odd, assign the extra **$1** to **seat 0** (deterministic).
+**Tie-break for odd pot**: When splitting, if the pot is odd, assign the extra **$1** to **seat 0** (deterministic).
 
-**All-in mismatch**: If one player **calls** for less than the full amount to match, **refund** unmatched dollars from the pot to the over-committed player **before showdown**. This does **not** apply when the opponent **folds**—the winner takes the full pot, including the unmatched portion of a raise.
+**All-in mismatch**: If one player **calls** for less than the full amount to match, **refund** the unmatched amount from the pot to the over-committed player **before showdown**. This does **not** apply when the opponent **folds**—the winner takes the full pot, including the unmatched portion of a raise.
 
 **Seats vs Player 1 / 2**: The engine uses **seat 0** and **seat 1**. Each **hand**, the seat that opens the betting sequence is **Player 1** for the rules above (the match layer passes `first_to_act`); the other seat is **Player 2**. The odd-pot split tie-break assigns the extra **$1** to **seat 0** (not “who was Player 1”).
 
 **First action**: Player 1 may **fold** on the first decision (forfeit the hand, including ante already posted).
 
-**Match end**: Play until a player cannot cover the next **ante** (brokes out of the match) or a **safety max-round** (`max_rounds_per_match`) cap is reached. The richer seat wins; **equal final stacks → no single winner** (implementation uses `None` for the winner id).
+**Match end**: Play until a player cannot cover the next **ante** (brokes out of the match) or a **safety max-round** (`max_rounds_per_match`) cap is reached. The richer seat wins; **equal final stacks → no single winner** (implementation uses `None` for the winner id). In code, `run_match` returns `MatchResult` with `reason` of **`bankruptcy`** (cannot post ante before the next hand) or **`max_hands`** (hand cap from `max_rounds_per_match` reached).
 
 ## Planned layout
 
 | Path | Role |
 |------|------|
 | `app/` | Application modules—`config`, `actions` / `actor_view`, **`hand.py`** (one hand), **`match.py`** (`run_match`), **`strategies.py`** (`HotseatStrategy`, `ScriptedStrategy`, `RandomLegalStrategy`, `legal_actions_for_view`), **`cli.py`** (argparse hotseat driver)—run with `uv run python -m app.cli`, not an installable distribution |
-| `config/` | Example game **YAML** (dollar amounts, ante, `min_raise` / `max_raise`, card range, max rounds) |
+| `config/` | Example game **YAML** (stacks, ante, `min_raise` / `max_raise`, card range, max rounds) |
 | `tests/` | `pytest` (`pythonpath` includes repo root so `import app` works) |
 | `scripts/` | Optional throughput benchmark |
 
@@ -80,8 +80,7 @@ Adjust to match the repo’s `uv`/`pytest` setup as it evolves.
 
 ## Definition of done
 
-- Behavior matches the **Game rules** section; **conservation** of total dollars holds (including refunds).
-- Monetary fields are **`int` dollars** in the engine API.
+- Behavior matches the **Game rules** section; **conservation** of total money in play holds (including refunds).
 - Config keys documented in example **YAML** and loaded in code.
 - Tests cover: P1 raise → P2 fold vs call; P1 check → P2 check vs raise (amount in config range) → P1 fold vs call; ties and odd pot; short all-in refund.
 - Public API docstrings per `.cursor/rules/python-pep8-docstrings.mdc`.
@@ -89,4 +88,4 @@ Adjust to match the repo’s `uv`/`pytest` setup as it evolves.
 ## Performance
 
 - No logging inside inner action-selection / betting loops for batch runs.
-- Prefer small types (`int` dollars, compact state) on the hot path; optional batching stays outside the core rules loop.
+- Prefer compact state and small numeric types on the hot path; optional batching stays outside the core rules loop.

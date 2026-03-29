@@ -15,7 +15,7 @@ alwaysApply: false
 
 ## Money and types
 
-- Store money as **`int` whole dollars** end-to-end (no `float` for balances or pots).
+- Balances and pot are integers in code; keep it that way unless you are deliberately changing the model.
 - Keep **RNG injectable** (`random.Random` or a small protocol) into `play_hand` / `run_match` for reproducible runs.
 
 ## Betting grammar

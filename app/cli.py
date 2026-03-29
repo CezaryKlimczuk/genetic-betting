@@ -21,7 +21,7 @@ def build_parser() -> argparse.ArgumentParser:
         prog="python -m app.cli",
         description=(
             "Two-player betting game: hotseat mode (one terminal, two humans). "
-            "Opponent hole cards stay hidden until showdown unless the hand ends in a fold."
+            "Each seat sees only their own card until showdown; fold endings do not reveal hole cards."
         ),
     )
     parser.add_argument(

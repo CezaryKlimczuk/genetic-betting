@@ -1,4 +1,4 @@
-# Example two-player betting game (all amounts are whole dollars).
+# Example two-player betting game.
 starting_stack: 100
 ante: 5
 min_raise: 5

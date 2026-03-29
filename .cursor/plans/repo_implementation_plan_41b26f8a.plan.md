@@ -1,6 +1,6 @@
 ---
 name: Repo implementation plan
-overview: Add a committed markdown plan in `docs/implementation-plan.md`, then implement (via future agent tasks) a YAML-configured, `int`-dollar game engine with pytest coverage and a hotseat CLI where each player only sees their own card until showdown.
+overview: Add a committed markdown plan in `docs/implementation-plan.md`, then implement (via future agent tasks) a YAML-configured game engine with pytest coverage and a hotseat CLI where each player only sees their own card until showdown.
 todos:
   - id: write-docs-plan
     content: Add plans/implementation-plan.md to repo with task IDs T1–T9, deps, architecture (post-approval)
@@ -28,7 +28,7 @@ todos:
     status: completed
   - id: t8-readme
     content: "T8: README usage for uv and play command; review & sync AGENTS.md, .cursor/rules/, .cursor/skills/ with implemented behavior"
-    status: pending
+    status: completed
   - id: t9-benchmark
     content: "T9 (optional): scripts/benchmark_hands.py; review & sync AGENTS.md, .cursor/rules/, .cursor/skills/ with implemented behavior"
     status: pending
@@ -87,12 +87,12 @@ flowchart TB
 
 
 
-- `**GameConfig**`: loaded from `[config/game.example.yaml](config/game.example.yaml)` (copy path via CLI `--config`); all monetary fields `**int` dollars**.
+- `**GameConfig**`: loaded from `[config/game.example.yaml](config/game.example.yaml)` (copy path via CLI `--config`).
 - `**Strategy` protocol**: `choose_action(rng, view_for_actor, legal_actions) -> Action`. Engine passes a **view** that exposes only what that seat should see (for hotseat: **own card**, balances, pot, betting state—not opponent’s card until showdown).
 - `**play_hand` / `play_round`** (name TBD): ante → deal → betting FSM per rules → refunds if needed → distribute pot; return structured outcome for tests/CLI.
 - `**run_match`**: repeat hands until bankrupt or `max_rounds_per_match`; **alternate first actor** each hand as in [AGENTS.md](AGENTS.md).
 
-**Betting FSM** (no re-raise): encode explicitly from [AGENTS.md](AGENTS.md)—P1 raise → P2 fold/call; P1 check → P2 check/raise in `[min_raise, max_raise]`; P2 raise → P1 fold/call. **Legal raises**: enumerate integer dollars in range capped by actor’s **wallet** (cannot raise more than stack allows).
+**Betting FSM** (no re-raise): encode explicitly from [AGENTS.md](AGENTS.md)—P1 raise → P2 fold/call; P1 check → P2 check/raise in `[min_raise, max_raise]`; P2 raise → P1 fold/call. **Legal raises**: enumerate raise sizes in range capped by actor’s **wallet** (cannot raise more than stack allows).
 
 **All-in / refund**: when commitments cannot equalize, refund excess to the over-committed player before awarding the contested pot (document invariants in module docstring or short comment block).
 
@@ -128,7 +128,7 @@ flowchart TB
 
 **T4 — Single-hand engine**  
 
-- Implement betting + showdown + pot split (odd dollar to player 0) + refunds.  
+- Implement betting + showdown + pot split (odd pot: extra chip to seat 0) + refunds.  
 - Injected `random.Random` for deals.  
 - **Done**: pytest table cases for every branch in [AGENTS.md](AGENTS.md) Game rules + conservation `sum(wallets)+pot` constant across a hand after refunds.
 

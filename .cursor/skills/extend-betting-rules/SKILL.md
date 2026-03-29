@@ -14,16 +14,15 @@ If there is no `app/` tree yet, follow [`AGENTS.md`](../../../AGENTS.md) and the
 
 ## Checklist
 
-1. **Config**: Update the game config dataclass and **YAML** loader (fields in **whole dollars**). Add any new third-party deps with **`uv add`**, not hand-edited `pyproject.toml` lists (see `.cursor/rules/dependencies-uv.mdc`).
+1. **Config**: Update the game config dataclass and **YAML** loader. Add any new third-party deps with **`uv add`**, not hand-edited `pyproject.toml` lists (see `.cursor/rules/dependencies-uv.mdc`).
 2. **Example config**: Update or add an example under `config/` (**`.yaml`**) with comments for new keys.
 3. **Engine**: Update **`app/hand.py`** for per-hand rules; update **`app/match.py`** if match-level behavior changes. Legal actions and transitions must match [`AGENTS.md`](../../../AGENTS.md) (check vs call, P2 raise only after P1 check, raises in `min_raise`..`max_raise`, refunds on short call only). If decision nodes or `ActorView` flags change, update **`app/strategies.py`** **`legal_actions_for_view`** so it stays consistent with the FSM.
-4. **Match loop**: In **`app/match.py`**, adjust end-of-match reason (`bankruptcy` vs `max_hands`), alternating first actor, or tie handling if rules require it.
+4. **Match loop**: In **`app/match.py`**, adjust end-of-match reason (`bankruptcy` vs `max_hands`), the YAML cap key (`max_rounds_per_match`), alternating first actor, or tie handling if rules require it.
 5. **Tests**: Add or adjust `tests/` cases; run **`uv run pytest`** (or the project’s test command).
 6. **Agents doc**: Sync the **Game rules** section in [`AGENTS.md`](../../../AGENTS.md) if behavior changes.
 
 ## Constraints
 
-- Money stays **`int` dollars** (no floats).
 - Preserve **injected RNG** for determinism.
 - Prefer **config-driven** values over magic numbers.
 
