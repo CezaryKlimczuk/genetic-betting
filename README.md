@@ -1,6 +1,10 @@
 # genetic-betting
 
-Configurable **two-player** betting game (single-card showdown) for local **hotseat** play and future batch simulation or genetic-algorithm experiments. Rules are in [`AGENTS.md`](AGENTS.md).
+Configurable **two-player** betting game (single-card showdown) for local **hotseat** play and future batch simulation or genetic-algorithm experiments.
+
+After antes, the opening player acts first and may fold, check, or raise (integer raise sizes from config); the other player may raise only after a check, and there is at most **one** raise per hand—no re-raises. If nobody folds, **showdown** compares hole cards: higher card wins the pot; ties split.
+
+Authoritative rules, money handling, and match end conditions are in [`AGENTS.md`](AGENTS.md).
 
 ## Prerequisites
 
