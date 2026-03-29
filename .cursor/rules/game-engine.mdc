@@ -10,7 +10,7 @@ alwaysApply: false
 
 - **`config`**: Load **YAML** (not TOML) into a `GameConfig` (or similar) dataclass; use a YAML library added with **`uv add`**. No game logic in the loader.
 - **Core engine** (hand/round, match): State transitions only; **no** I/O, CLI, or GA orchestration. Single-hand FSM is **`app/hand.py`** (`play_hand`, refunds, showdown). Multi-hand loop is **`app/match.py`** (`run_match`, alternating `first_to_act`, bankruptcy vs `max_rounds_per_match` cap).
-- **`strategies`**: Callable or `Protocol` typing for “given RNG + **ActorView**, return **Action**”; depend on a **public observation** type, not private engine details.
+- **`strategies`**: `Strategy` in **`app/hand.py`** is ``Callable[[random.Random, ActorView], Action]``. Reusable helpers live in **`app/strategies.py`** (`ScriptedStrategy`, `RandomLegalStrategy`, `legal_actions_for_view`). If you change the hand FSM, keep **`legal_actions_for_view`** and **`ActorView`** flags built in **`hand.py`** (e.g. **`can_fold`**) aligned so derived legal sets match the engine.
 
 ## Money and types
 

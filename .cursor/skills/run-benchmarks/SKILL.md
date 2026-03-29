@@ -35,4 +35,4 @@ Adjust the script name/path to match what you add.
 ## Pitfalls
 
 - Warmup and OS noise: repeat runs; do not extrapolate linearly from tiny `--hands` without checking variance.
-- Random strategies add noise; for micro-benchmarks prefer a **cheap deterministic** strategy.
+- Random strategies add noise; for micro-benchmarks prefer **`ScriptedStrategy`** or **`random.Random` with a fixed seed** over `RandomLegalStrategy`.

@@ -47,10 +47,12 @@ There is **no re-raise chain**: at most **one** raise in a round (by Player 2, a
 
 | Path | Role |
 |------|------|
-| `app/` | Application modules—`config`, `actions` / `actor_view`, **`hand.py`** (one hand), **`match.py`** (`run_match`), strategies, **`cli.py`**—run with `uv run python -m app.cli`, not an installable distribution |
+| `app/` | Application modules—`config`, `actions` / `actor_view`, **`hand.py`** (one hand), **`match.py`** (`run_match`), **`strategies.py`** (`ScriptedStrategy`, `RandomLegalStrategy`, `legal_actions_for_view`), **`cli.py`**—run with `uv run python -m app.cli`, not an installable distribution |
 | `config/` | Example game **YAML** (dollar amounts, ante, `min_raise` / `max_raise`, card range, max rounds) |
 | `tests/` | `pytest` (`pythonpath` includes repo root so `import app` works) |
 | `scripts/` | Optional throughput benchmark |
+
+A **strategy** is `Callable[[random.Random, ActorView], Action]` (see `Strategy` in `hand.py`). `ActorView.can_fold` is only true when fold is legal at that decision (e.g. false for Player 2 after Player 1 checked—**check** or **raise** only).
 
 ## Config format
 

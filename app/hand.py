@@ -87,6 +87,7 @@ def _build_view(
     can_raise: bool,
     raise_amount_min: int | None,
     raise_amount_max: int | None,
+    can_fold: bool = True,
 ) -> ActorView:
     opp = _other(seat)
     return ActorView.from_config(
@@ -99,7 +100,7 @@ def _build_view(
         pot=pot,
         amount_to_call=amount_to_call,
         can_check=amount_to_call == 0,
-        can_fold=True,
+        can_fold=can_fold,
         can_call=amount_to_call > 0 and stacks[seat] > 0,
         can_raise=can_raise,
         raise_amount_min=raise_amount_min,
@@ -309,6 +310,7 @@ def play_hand(
         can_raise=can_r2,
         raise_amount_min=min(raise_opts2) if can_r2 else None,
         raise_amount_max=max(raise_opts2) if can_r2 else None,
+        can_fold=False,
     )
     a2b = choose(p2, v2b)
     if a2b not in legal2b:

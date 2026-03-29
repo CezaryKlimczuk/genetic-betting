@@ -22,7 +22,7 @@ todos:
     status: completed
   - id: t6-strategies
     content: "T6: ScriptedStrategy + RandomLegalStrategy + integration test"
-    status: pending
+    status: completed
   - id: t7-cli
     content: "T7: hotseat CLI, private cards until showdown"
     status: pending
