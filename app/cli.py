@@ -199,7 +199,6 @@ def _format_hand_outcome(result: HandResult) -> list[str]:
         lines.append(
             f"Showdown — cards: seat 0 = {c0}, seat 1 = {c1}. Tie; pot split."
         )
-        lines.append("(Odd chip from an odd pot goes to seat 0.)")
     else:
         w = result.winner
         lines.append(

@@ -136,10 +136,11 @@ def test_showdown_tie_split_even_pot() -> None:
     assert _conserved(stacks, r)
 
 
-def test_split_odd_dollar_to_seat_0() -> None:
+def test_award_split_pot_halves_even_showdown_pot() -> None:
+    """Showdown tie pots are even; each seat gets ``pot // 2`` (see ``hand``)."""
     st = [100, 100]
-    _award_split_pot(5, st)
-    assert st == [103, 102]
+    _award_split_pot(24, st)
+    assert st == [112, 112]
 
 
 def test_p2_raise_truncated_when_p1_broke_showdown_no_p1_decision() -> None:

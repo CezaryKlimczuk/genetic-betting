@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Literal
 
+import math
+
 from app.config import GameConfig, strict_int
 
 _DECISION_PHASES = frozenset(
@@ -12,6 +14,122 @@ _DECISION_PHASES = frozenset(
 )
 DecisionPhase = Literal["p1_open", "p2_facing_raise", "p2_after_check", "p1_facing_raise"]
 """Betting FSM node for the current decision (set by :func:`app.hand.play_hand`)."""
+
+# Stable alphabetical order for :func:`as_observation` phase one-hot (do not reorder).
+OBSERVATION_PHASE_ORDER: tuple[DecisionPhase, ...] = (
+    "p1_facing_raise",
+    "p1_open",
+    "p2_after_check",
+    "p2_facing_raise",
+)
+
+OBSERVATION_VECTOR_LEN = 17
+"""Length of :attr:`Observation.values` from :func:`as_observation`."""
+
+
+@dataclass(frozen=True, slots=True)
+class Observation:
+    """Float feature vector derived from an :class:`ActorView` for batch encoders.
+
+    Not used by the engine; layout is best-effort and may evolve—pin versions for
+    serious training runs. See module constants for field ordering.
+    """
+
+    values: tuple[float, ...]
+
+    def __post_init__(self) -> None:
+        if len(self.values) != OBSERVATION_VECTOR_LEN:
+            raise ValueError(
+                f"Observation.values must have length {OBSERVATION_VECTOR_LEN}, "
+                f"got {len(self.values)}."
+            )
+
+
+def as_observation(view: ActorView) -> Observation:
+    """Map a view to a fixed-length float tuple for GA / neural encoders.
+
+    Values are mostly in ``[0, 1]``; legal flags use ``0.0``/``1.0``.
+    Money fields use ``denom = max(wallet_self + wallet_opponent + pot, 1)``.
+    Hidden opponent cards use ``0.0`` for the normalized rank and ``0.0`` for the
+    known flag; revealed cards use normalized rank and ``1.0``. Seat is omitted;
+    ``decision_phase`` and ego-centric wallets encode role.
+
+    Layout (indices ``0 .. OBSERVATION_VECTOR_LEN - 1``):
+
+    - ``0`` — own card normalized by ``[card_min, card_max]``
+    - ``1`` — opponent card normalized, or ``0`` if unknown
+    - ``2`` — ``1`` if opponent card is known, else ``0``
+    - ``3:7`` — ``wallet_self``, ``wallet_opponent``, ``pot``, ``amount_to_call`` / denom
+    - ``7:11`` — ``can_check``, ``can_fold``, ``can_call``, ``can_raise`` as floats
+    - ``11:13`` — ``raise_amount_min/max`` / denom if ``can_raise``, else ``0``, ``0``
+    - ``13:17`` — ``decision_phase`` one-hot in :data:`OBSERVATION_PHASE_ORDER`
+
+    Args:
+        view: Actor-visible state (typically from :func:`app.hand.play_hand`).
+
+    Returns:
+        Frozen :class:`Observation` wrapping the feature tuple.
+    """
+    cmin, cmax = view.card_min, view.card_max
+    span_cards = max(cmax - cmin, 1)
+    own_n = (view.own_card - cmin) / span_cards
+
+    if view.opponent_card is None:
+        opp_n = 0.0
+        opp_known = 0.0
+    else:
+        opp_n = (view.opponent_card - cmin) / span_cards
+        opp_known = 1.0
+
+    total_chips = view.wallet_self + view.wallet_opponent + view.pot
+    denom = max(total_chips, 1)
+    w_s = view.wallet_self / denom
+    w_o = view.wallet_opponent / denom
+    pot_n = view.pot / denom
+    call_n = view.amount_to_call / denom
+
+    if view.can_raise:
+        rmin = view.raise_amount_min
+        rmax = view.raise_amount_max
+        if rmin is None or rmax is None:
+            raise ValueError("can_raise requires raise_amount_min and raise_amount_max.")
+        rmin_n = rmin / denom
+        rmax_n = rmax / denom
+    else:
+        rmin_n = 0.0
+        rmax_n = 0.0
+
+    phase_bits = tuple(
+        1.0 if view.decision_phase is ph else 0.0 for ph in OBSERVATION_PHASE_ORDER
+    )
+
+    vec = (
+        own_n,
+        opp_n,
+        opp_known,
+        w_s,
+        w_o,
+        pot_n,
+        call_n,
+        float(view.can_check),
+        float(view.can_fold),
+        float(view.can_call),
+        float(view.can_raise),
+        rmin_n,
+        rmax_n,
+    ) + phase_bits
+
+    expected = OBSERVATION_VECTOR_LEN
+    if len(vec) != expected:
+        msg = f"internal observation layout error: len {len(vec)} != {expected}"
+        raise RuntimeError(msg)
+
+    # Guard against NaNs so encoders fail loudly on bad fixtures.
+    for x in vec:
+        if isinstance(x, float) and not math.isfinite(x):
+            raise ValueError(f"non-finite observation component: {x!r}")
+
+    return Observation(values=vec)
 
 
 @dataclass(frozen=True, slots=True)

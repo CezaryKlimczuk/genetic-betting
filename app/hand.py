@@ -180,12 +180,15 @@ def _award_pot_winner(pot: int, stacks: list[int], winner: int) -> None:
 
 
 def _award_split_pot(pot: int, stacks: list[int]) -> None:
-    """Split ``pot``; odd dollar goes to seat 0 (AGENTS.md)."""
+    """Award ``pot`` equally to both seats.
+
+    Integer antes plus matched betting (see ``_apply_refund_if_mismatch``) make
+    the pot **even** at showdown, so each seat gets ``pot // 2``.
+    """
     if pot <= 0:
         return
     half = pot // 2
-    rem = pot - 2 * half
-    stacks[0] += half + rem
+    stacks[0] += pot - half
     stacks[1] += half
 
 
