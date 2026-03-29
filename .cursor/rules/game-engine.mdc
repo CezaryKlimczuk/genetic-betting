@@ -30,6 +30,7 @@ Implement the flow in [`AGENTS.md`](../../AGENTS.md): **check** = $0 for that de
 ## Hot path
 
 - No logging in tight betting loops. Optional **event logs** only when callers opt in (tests, debugging).
+- Throughput checks belong in **`scripts/benchmark_hands.py`** (or similar drivers): use **`time.perf_counter`** around batches of **`play_hand`**, not inside the hand FSM.
 
 ## Docstrings
 

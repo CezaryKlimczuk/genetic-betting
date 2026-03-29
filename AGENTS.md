@@ -50,7 +50,7 @@ There is **no re-raise chain**: at most **one** raise in a round (by Player 2, a
 | `app/` | Application modules—`config`, `actions` / `actor_view`, **`hand.py`** (one hand), **`match.py`** (`run_match`), **`strategies.py`** (`HotseatStrategy`, `ScriptedStrategy`, `RandomLegalStrategy`, `legal_actions_for_view`), **`cli.py`** (`hotseat_menu_actions`, `hotseat_action_completes_hand`, argparse hotseat driver)—run with `uv run python -m app.cli`, not an installable distribution |
 | `config/` | Example game **YAML** (stacks, ante, `min_raise` / `max_raise`, card range, max rounds) |
 | `tests/` | `pytest` (`pythonpath` includes repo root so `import app` works) |
-| `scripts/` | Optional throughput benchmark |
+| `scripts/` | Throughput benchmark (`benchmark_hands.py`) |
 
 A **strategy** is `Callable[[random.Random, ActorView], Action]` (see `Strategy` in `hand.py`). `ActorView.can_fold` is only true when fold is legal at that decision (e.g. false for Player 2 after Player 1 checked—**check** or **raise** only).
 
@@ -67,6 +67,14 @@ Use **`uv`** for environments and dependencies (see dependency rule). Typical wo
 uv sync
 uv run pytest
 ```
+
+**Benchmark** (optional): from repo root, time `N` calls to `play_hand` with `RandomLegalStrategy` on both seats (each hand resets stacks to `starting_stack`; alternates `first_to_act` like the match loop):
+
+```bash
+uv run python scripts/benchmark_hands.py --hands 10000
+```
+
+Use `--config` for another YAML, `--seed` for reproducibility, and `--warmup` to discard untimed hands first.
 
 Adjust to match the repo’s `uv`/`pytest` setup as it evolves.
 
@@ -90,3 +98,4 @@ Adjust to match the repo’s `uv`/`pytest` setup as it evolves.
 
 - No logging inside inner action-selection / betting loops for batch runs.
 - Prefer compact state and small numeric types on the hot path; optional batching stays outside the core rules loop.
+- Keep timers and reporting in drivers (e.g. `scripts/benchmark_hands.py`), not inside `play_hand` / strategy callbacks.

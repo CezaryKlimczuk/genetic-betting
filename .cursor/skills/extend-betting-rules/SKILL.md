@@ -21,6 +21,7 @@ If there is no `app/` tree yet, follow [`AGENTS.md`](../../../AGENTS.md) and the
 5. **Tests**: Add or adjust `tests/` cases; run **`uv run pytest`** (or the project’s test command).
 6. **Agents doc**: Sync the **Game rules** section in [`AGENTS.md`](../../../AGENTS.md) if behavior changes.
 7. **Hotseat CLI** (if relevant): Menu order and **`hotseat_menu_actions`** in **`app/cli.py`** use config **`min_raise`..`max_raise`** for raise slots; if you add action kinds or change raise semantics, keep that helper aligned with **`legal_actions_for_view`** in **`app/strategies.py`** so illegal flags match the engine. If the hand FSM gains new nodes or endings, update **`hotseat_action_completes_hand`** so the post-move pause text (handoff vs hand results) stays correct.
+8. **Throughput** (optional): If you materially change the hand or strategy hot path, re-check **`scripts/benchmark_hands.py`** with fixed **`--hands`** / **`--seed`** before vs after (see the **run-benchmarks** skill).
 
 ## Constraints
 

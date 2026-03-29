@@ -10,9 +10,9 @@ description: >-
 
 ## Status
 
-A benchmark script is **not** part of the repo until you add it (see [`AGENTS.md`](../../../AGENTS.md)). When it exists, use the workflow below.
+The repo ships [`scripts/benchmark_hands.py`](../../../scripts/benchmark_hands.py). It prepends the repo root to `sys.path` so **`uv run python scripts/benchmark_hands.py`** works from the repository root without an editable install.
 
-## Command (once `scripts/` exists)
+## Command
 
 From repo root, after syncing the environment (e.g. `uv sync`):
 
@@ -20,7 +20,7 @@ From repo root, after syncing the environment (e.g. `uv sync`):
 uv run python scripts/benchmark_hands.py --hands 10000
 ```
 
-Adjust the script name/path to match what you add.
+Optional flags: `--config PATH` (default `config/game.example.yaml`), `--seed N`, `--warmup K` (untimed hands before the timed loop).
 
 ## Interpreting results
 

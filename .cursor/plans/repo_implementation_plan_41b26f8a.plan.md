@@ -31,7 +31,7 @@ todos:
     status: completed
   - id: t9-benchmark
     content: "T9 (optional): scripts/benchmark_hands.py; review & sync AGENTS.md, .cursor/rules/, .cursor/skills/ with implemented behavior"
-    status: pending
+    status: completed
 isProject: false
 ---
 

@@ -24,6 +24,7 @@ Where applicable, assert:
 - For **`run_match`**: YAML cap `max_rounds_per_match` (terminal `MatchResult.reason == "max_hands"`), bankruptcy (stack strictly below `ante` before the next hand), **alternating** `first_to_act`, and **stack ties** at match end where relevant.
 - Prefer **deterministic strategies** over random ones for correctness; use **`app.strategies.ScriptedStrategy`** for fixed action queues in tests.
 - Use **small integer stakes** and **fixed RNG seeds** when randomness is involved.
+- For rough throughput regression checks, use **`scripts/benchmark_hands.py`** with a fixed **`--hands`** and **`--seed`**; interpret **hands/sec** only comparatively on the same machine.
 
 ## Docstrings
 
