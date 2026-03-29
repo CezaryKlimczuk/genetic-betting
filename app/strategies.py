@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import random
 from collections import deque
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 
 from app.actions import Action
 from app.actor_view import ActorView
+
+StrategyFn = Callable[[random.Random, ActorView], Action]
 
 
 def legal_actions_for_view(view: ActorView) -> list[Action]:
@@ -31,6 +33,16 @@ def legal_actions_for_view(view: ActorView) -> list[Action]:
             for a in range(view.raise_amount_min, view.raise_amount_max + 1)
         )
     return actions
+
+
+class HotseatStrategy:
+    """Delegate action selection to a callable (e.g. stdin prompts in ``app.cli``)."""
+
+    def __init__(self, choose: StrategyFn) -> None:
+        self._choose = choose
+
+    def __call__(self, rng: random.Random, view: ActorView) -> Action:
+        return self._choose(rng, view)
 
 
 class ScriptedStrategy:

@@ -9,8 +9,9 @@ alwaysApply: false
 ## Layering
 
 - **`config`**: Load **YAML** (not TOML) into a `GameConfig` (or similar) dataclass; use a YAML library added with **`uv add`**. No game logic in the loader.
-- **Core engine** (hand/round, match): State transitions only; **no** I/O, CLI, or GA orchestration. Single-hand FSM is **`app/hand.py`** (`play_hand`, refunds, showdown). Multi-hand loop is **`app/match.py`** (`run_match`, alternating `first_to_act`, bankruptcy vs `max_rounds_per_match` cap).
-- **`strategies`**: `Strategy` in **`app/hand.py`** is ``Callable[[random.Random, ActorView], Action]``. Reusable helpers live in **`app/strategies.py`** (`ScriptedStrategy`, `RandomLegalStrategy`, `legal_actions_for_view`). If you change the hand FSM, keep **`legal_actions_for_view`** and **`ActorView`** flags built in **`hand.py`** (e.g. **`can_fold`**) aligned so derived legal sets match the engine.
+- **Core engine** (hand/round, match): State transitions only; **no** I/O, CLI, or GA orchestration. Single-hand FSM is **`app/hand.py`** (`play_hand`, refunds, showdown). Multi-hand loop is **`app/match.py`** (`run_match`, alternating `first_to_act`, bankruptcy vs `max_rounds_per_match` cap). Optional **`before_each_hand`** / **`after_each_hand`** hooks are for drivers (e.g. **`app/cli.py`**) only; keep them free of game logic.
+- **`strategies`**: `Strategy` in **`app/hand.py`** is ``Callable[[random.Random, ActorView], Action]``. Reusable helpers live in **`app/strategies.py`** (`HotseatStrategy`, `ScriptedStrategy`, `RandomLegalStrategy`, `legal_actions_for_view`). If you change the hand FSM, keep **`legal_actions_for_view`** and **`ActorView`** flags built in **`hand.py`** (e.g. **`can_fold`**) aligned so derived legal sets match the engine.
+- **`cli`**: **`app/cli.py`** is a thin **argparse** driver: load YAML, **`run_match`** with stdin-based human strategies; **no** `print`/`input` inside `play_hand` or betting loops.
 
 ## Money and types
 

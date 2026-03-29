@@ -25,7 +25,7 @@ todos:
     status: completed
   - id: t7-cli
     content: "T7: hotseat CLI, private cards until showdown; review & sync AGENTS.md, .cursor/rules/, .cursor/skills/ with implemented behavior"
-    status: pending
+    status: completed
   - id: t8-readme
     content: "T8: README usage for uv and play command; review & sync AGENTS.md, .cursor/rules/, .cursor/skills/ with implemented behavior"
     status: pending

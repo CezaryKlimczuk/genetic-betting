@@ -10,7 +10,7 @@ description: >-
 
 ## Status
 
-A benchmark script is **not** part of the repo until you add it (see [`AGENTS.md`](../../AGENTS.md)). When it exists, use the workflow below.
+A benchmark script is **not** part of the repo until you add it (see [`AGENTS.md`](../../../AGENTS.md)). When it exists, use the workflow below.
 
 ## Command (once `scripts/` exists)
 
@@ -30,7 +30,7 @@ Adjust the script name/path to match what you add.
 ## Adding a benchmark
 
 1. Keep timers **outside** the inner betting loop (`scripts/` or CLI driver), not inside per-action hot paths in `app/`.
-2. Document usage in [`AGENTS.md`](../../AGENTS.md).
+2. Document usage in [`AGENTS.md`](../../../AGENTS.md).
 
 ## Pitfalls
 

@@ -47,7 +47,7 @@ There is **no re-raise chain**: at most **one** raise in a round (by Player 2, a
 
 | Path | Role |
 |------|------|
-| `app/` | Application modules—`config`, `actions` / `actor_view`, **`hand.py`** (one hand), **`match.py`** (`run_match`), **`strategies.py`** (`ScriptedStrategy`, `RandomLegalStrategy`, `legal_actions_for_view`), **`cli.py`**—run with `uv run python -m app.cli`, not an installable distribution |
+| `app/` | Application modules—`config`, `actions` / `actor_view`, **`hand.py`** (one hand), **`match.py`** (`run_match`), **`strategies.py`** (`HotseatStrategy`, `ScriptedStrategy`, `RandomLegalStrategy`, `legal_actions_for_view`), **`cli.py`** (argparse hotseat driver)—run with `uv run python -m app.cli`, not an installable distribution |
 | `config/` | Example game **YAML** (dollar amounts, ante, `min_raise` / `max_raise`, card range, max rounds) |
 | `tests/` | `pytest` (`pythonpath` includes repo root so `import app` works) |
 | `scripts/` | Optional throughput benchmark |
@@ -69,6 +69,14 @@ uv run pytest
 ```
 
 Adjust to match the repo’s `uv`/`pytest` setup as it evolves.
+
+### Hotseat CLI (two humans, one terminal)
+
+- Run: **`uv run python -m app.cli`**
+- **`--config`**: path to game YAML (default: **`config/game.example.yaml`**).
+- **`--seed`**: optional `int` seed for `random.Random` when dealing cards (omit for nondeterministic deals).
+- Each prompt shows only the **current** seat’s hole card, balances, pot, and legal actions (numbered menu). **Opponent’s card is not shown** until the hand reaches **showdown**; if the hand ends in a **fold**, cards stay hidden for that hand.
+- **`run_match`** accepts optional **`before_each_hand`** and **`after_each_hand`** callbacks (used by the CLI to print hand banners and outcomes without putting I/O in the engine core).
 
 ## Definition of done
 

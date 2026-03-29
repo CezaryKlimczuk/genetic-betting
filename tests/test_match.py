@@ -108,6 +108,28 @@ def test_alternating_first_to_act_each_hand() -> None:
     assert first_args == [0, 1, 0, 1]
 
 
+def test_run_match_calls_optional_hand_hooks() -> None:
+    cfg = _cfg(max_rounds_per_match=2)
+    span = cfg.card_max - cfg.card_min + 1
+    rng = _RepeatDealRng(0, 0, span)
+    actions = [Action.check(), Action.check()]
+    s0, s1 = _strategies(actions * 10, actions * 10)
+    before: list[tuple[int, tuple[int, int], int]] = []
+    after: list[HandResult] = []
+
+    def _b(h: int, st: tuple[int, int], ft: int) -> None:
+        before.append((h, st, ft))
+
+    def _a(hr: HandResult) -> None:
+        after.append(hr)
+
+    r = run_match(cfg, rng, s0, s1, before_each_hand=_b, after_each_hand=_a)
+    assert r.reason == "max_hands"
+    assert [x[0] for x in before] == [1, 2]
+    assert [x[2] for x in before] == [0, 1]
+    assert len(after) == 2
+
+
 def test_max_hands_winner_by_stack_tie_is_none() -> None:
     cfg = _cfg(max_rounds_per_match=2, starting_stack=30)
     dummy = HandResult(

@@ -9,6 +9,7 @@ alwaysApply: false
 ## Runner
 
 - Use **`pytest`**. Tests live under [`tests/`](../../tests/).
+- Optional: smoke **`python -m app.cli --help`**; interactive prompts are tested by mocking **`input`** on **`app.cli.prompt_action_from_view`** (see **`tests/test_cli.py`**).
 
 ## Required invariants
 

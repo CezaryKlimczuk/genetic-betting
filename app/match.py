@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import random
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal
 
@@ -38,6 +39,9 @@ def run_match(
     rng: random.Random,
     strategy0: Strategy,
     strategy1: Strategy,
+    *,
+    before_each_hand: Callable[[int, tuple[int, int], int], None] | None = None,
+    after_each_hand: Callable[[HandResult], None] | None = None,
 ) -> MatchResult:
     """Run hands until bankruptcy, max hands, or cap (see ``AGENTS.md``).
 
@@ -54,6 +58,11 @@ def run_match(
         rng: Injected RNG (passed through to each ``play_hand``).
         strategy0: Chooses actions for seat 0.
         strategy1: Chooses actions for seat 1.
+        before_each_hand: If set, called before each hand with
+            ``(hand_number, stacks_before_antes, first_to_act)`` where
+            ``hand_number`` is 1-based within this match.
+        after_each_hand: If set, called after each completed hand with
+            that hand's :class:`~app.hand.HandResult`.
 
     Returns:
         ``MatchResult`` with final stacks, end reason, and richer seat if any.
@@ -71,6 +80,8 @@ def run_match(
             )
 
         first_to_act = hand_index % 2
+        if before_each_hand is not None:
+            before_each_hand(hands_played + 1, stacks, first_to_act)
         hand_result: HandResult = play_hand(
             config,
             rng,
@@ -79,6 +90,8 @@ def run_match(
             strategy0,
             strategy1,
         )
+        if after_each_hand is not None:
+            after_each_hand(hand_result)
         stacks = hand_result.final_stacks
         hands_played += 1
 
