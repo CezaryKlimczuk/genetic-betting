@@ -8,7 +8,7 @@ alwaysApply: false
 
 ## Runner
 
-- Use **`pytest`**. Tests live under [`tests/`](tests/) once that directory exists.
+- Use **`pytest`**. Tests live under [`tests/`](../../tests/).
 
 ## Required invariants
 

@@ -1,0 +1,8 @@
+# Example two-player betting game (all amounts are whole dollars).
+starting_stack: 100
+ante: 5
+min_raise: 5
+max_raise: 25
+max_rounds_per_match: 500
+card_min: 1
+card_max: 10

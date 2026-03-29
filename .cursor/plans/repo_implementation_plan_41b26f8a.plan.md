@@ -4,13 +4,13 @@ overview: Add a committed markdown plan in `docs/implementation-plan.md`, then i
 todos:
   - id: write-docs-plan
     content: Add plans/implementation-plan.md to repo with task IDs T1–T9, deps, architecture (post-approval)
-    status: pending
+    status: completed
   - id: t1-scaffold
     content: "T1: uv + simple app layout (app/), pytest pythonpath, no installable package"
-    status: pending
+    status: completed
   - id: t2-config
     content: "T2: config/game.example.yaml + GameConfig load/validate + tests"
-    status: pending
+    status: completed
   - id: t3-actions-view
     content: "T3: Action + ActorView types + tests"
     status: pending
