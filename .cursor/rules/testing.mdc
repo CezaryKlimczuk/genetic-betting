@@ -20,6 +20,7 @@ Where applicable, assert:
 ## Style
 
 - **Table-driven** cases for: P1 check → P2 check (showdown); P1 check → P2 raise (within config bounds) → P1 fold / **call**; P1 raise → P2 fold / **call**; tie split; **odd-dollar** pot split; short all-in refund.
+- For **`run_match`**: cap (`max_hands`), bankruptcy (stack below ante before next hand), **alternating** `first_to_act`, and **stack ties** at match end where relevant.
 - Prefer **deterministic strategies** (fixed sequences) over random ones for correctness.
 - Use **small integer dollar amounts** and **fixed RNG seeds** when randomness is involved.
 

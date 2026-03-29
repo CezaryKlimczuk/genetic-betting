@@ -41,13 +41,13 @@ There is **no re-raise chain**: at most **one** raise in a round (by Player 2, a
 
 **First action**: Player 1 may **fold** on the first decision (forfeit the hand, including ante already posted).
 
-**Match end**: Play until a player is broke or a **safety max-round** limit; then the player with **more money** wins.
+**Match end**: Play until a player cannot cover the next **ante** (brokes out of the match) or a **safety max-round** (`max_rounds_per_match`) cap is reached. The richer seat wins; **equal final stacks → no single winner** (implementation uses `None` for the winner id).
 
 ## Planned layout
 
 | Path | Role |
 |------|------|
-| `app/` | Application modules (YAML config load, actions, hand/round, match, strategies, CLI)—run with `uv run python -m app.cli`, not an installable distribution |
+| `app/` | Application modules—`config`, `actions` / `actor_view`, **`hand.py`** (one hand), **`match.py`** (`run_match`), strategies, **`cli.py`**—run with `uv run python -m app.cli`, not an installable distribution |
 | `config/` | Example game **YAML** (dollar amounts, ante, `min_raise` / `max_raise`, card range, max rounds) |
 | `tests/` | `pytest` (`pythonpath` includes repo root so `import app` works) |
 | `scripts/` | Optional throughput benchmark |

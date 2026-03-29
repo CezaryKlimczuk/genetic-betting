@@ -19,7 +19,7 @@ todos:
     status: completed
   - id: t5-match
     content: "T5: run_match, alternate starter, terminal conditions + tests"
-    status: pending
+    status: completed
   - id: t6-strategies
     content: "T6: ScriptedStrategy + RandomLegalStrategy + integration test"
     status: pending
